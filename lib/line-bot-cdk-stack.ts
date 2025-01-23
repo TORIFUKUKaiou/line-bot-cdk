@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
+import { LineBotCdk } from './line-bot-cdk';
 
 export class LineBotCdkStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -12,5 +13,6 @@ export class LineBotCdkStack extends cdk.Stack {
     // const queue = new sqs.Queue(this, 'LineBotCdkQueue', {
     //   visibilityTimeout: cdk.Duration.seconds(300)
     // });
+    new LineBotCdk(this, 'line-bot-cdk');
   }
 }
