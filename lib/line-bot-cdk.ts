@@ -3,22 +3,36 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Runtime, FunctionUrlAuthType } from 'aws-cdk-lib/aws-lambda'
 import { Duration, CfnOutput } from 'aws-cdk-lib';
-  
+import * as iam from 'aws-cdk-lib/aws-iam';
+
 export class LineBotCdk extends Construct {
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
-    // ロググループを作成(保持期間を1日に設定)
-    const logGroup = new logs.LogGroup(this, 'LogGroup', {
-      retention: logs.RetentionDays.ONE_DAY,
-    });
-
     // Lambda関数を作成
     const lineBotFunction = new NodejsFunction(this, 'function', {
       runtime: Runtime.NODEJS_22_X,
-      logGroup: logGroup,
+      environment: {
+        CHANNEL_SECRET_PARAM_NAME: process.env.CHANNEL_SECRET_PARAM_NAME || '',
+        CHANNEL_ACCESS_TOKEN_PARAM_NAME: process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME || '',
+      },
+      logRetention: logs.RetentionDays.ONE_DAY,
       timeout: Duration.seconds(30),
     });
+
+    // SSMへのアクセス権限を付与
+    const ssmRunCmdPolicy = new iam.PolicyStatement({
+      actions: ['ssm:GetParameter'],
+      effect: iam.Effect.ALLOW,
+      resources: [
+        `arn:aws:ssm:*:*:parameter${process.env.CHANNEL_SECRET_PARAM_NAME}`,
+        `arn:aws:ssm:*:*:parameter${process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME}`,
+      ],
+    });
+
+    // Lambda関数にSSMへのアクセス権限を付与
+    const lambdaRole = lineBotFunction.role as iam.Role;
+    lambdaRole.addToPolicy(ssmRunCmdPolicy);
 
     // Lambda関数URLを有効化
     const functionUrl = lineBotFunction.addFunctionUrl({
