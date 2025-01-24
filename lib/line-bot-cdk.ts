@@ -15,6 +15,7 @@ export class LineBotCdk extends Construct {
       environment: {
         CHANNEL_SECRET_PARAM_NAME: process.env.CHANNEL_SECRET_PARAM_NAME || '',
         CHANNEL_ACCESS_TOKEN_PARAM_NAME: process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME || '',
+        OPENAI_API_KEY_PARAM_NAME: process.env.OPENAI_API_KEY_PARAM_NAME || '',
       },
       logRetention: logs.RetentionDays.ONE_DAY,
       timeout: Duration.seconds(30),
@@ -27,6 +28,7 @@ export class LineBotCdk extends Construct {
       resources: [
         `arn:aws:ssm:*:*:parameter${process.env.CHANNEL_SECRET_PARAM_NAME}`,
         `arn:aws:ssm:*:*:parameter${process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME}`,
+        `arn:aws:ssm:*:*:parameter${process.env.OPENAI_API_KEY_PARAM_NAME}`,
       ],
     });
 
