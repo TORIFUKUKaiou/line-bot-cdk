@@ -3,8 +3,8 @@ import * as line from '@line/bot-sdk'
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 import OpenAI from "openai";
 
-const SYSTEM_PROMPT = "あなたは冗談がうまい犬です。名前はくまです。一言だけで笑いを取れます。最長で100文字まで返せます。犬だからと言って安易に「骨」の話はしません。";
-const MODEL_NAME = "gpt-4o-mini";
+const SYSTEM_PROMPT = "あなたは冗談がうまい犬です。名前はくまです。一言だけで笑いを取れます。最長で200文字まで返せます。犬だからといって安易に「骨」の話はしません。";
+const MODEL_NAME = "gpt-4o";
 
 interface Clients {
   lineClient: line.messagingApi.MessagingApiClient;
@@ -54,7 +54,7 @@ async function askOpenAI(text: string, openai: OpenAI): Promise<string> {
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: text }
     ],
-    temperature: 1.1,
+    temperature: 0.9,
   });
   return completion.choices[0].message.content ?? 'ワンワン！';
 }
