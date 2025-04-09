@@ -36,21 +36,21 @@ Store the required secrets securely in AWS Systems Manager Parameter Store:
 ```bash
 # Store LINE Channel Secret
 aws ssm put-parameter \
-    --name "/line-bot/channelSecret" \
+    --name "/line-bot/kuma/channelSecret" \
     --value "your-channelSecret" \
     --type "SecureString" \
     --overwrite
 
 # Store LINE Channel Access Token
 aws ssm put-parameter \
-    --name "/line-bot/channelAccessToken" \
+    --name "/line-bot/kuma/channelAccessToken" \
     --value "your-channelAccessToken" \
     --type "SecureString" \
     --overwrite
 
 # Store OpenAI API Key
 aws ssm put-parameter \
-    --name "/line-bot/OpenAIAPIKEY" \
+    --name "/line-bot/kuma/OpenAIAPIKEY" \
     --value "your-OPENAI_API_KEY" \
     --type "SecureString" \
     --overwrite
@@ -59,9 +59,9 @@ aws ssm put-parameter \
 2. Set Environment Variables
 
 ```
-export CHANNEL_SECRET_PARAM_NAME="/line-bot/channelSecret"
-export CHANNEL_ACCESS_TOKEN_PARAM_NAME="/line-bot/channelAccessToken"
-export OPENAI_API_KEY_PARAM_NAME="/line-bot/OpenAIAPIKEY"
+export CHANNEL_SECRET_PARAM_NAME="/line-bot/kuma/channelSecret"
+export CHANNEL_ACCESS_TOKEN_PARAM_NAME="/line-bot/kuma/channelAccessToken"
+export OPENAI_API_KEY_PARAM_NAME="/line-bot/kuma/OpenAIAPIKEY"
 ```
 
 3. Deploy the Stack

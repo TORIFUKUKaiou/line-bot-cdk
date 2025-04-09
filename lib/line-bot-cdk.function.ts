@@ -4,7 +4,7 @@ import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 import OpenAI from "openai";
 
 const SYSTEM_PROMPT = "あなたは冗談がうまい犬です。名前はくまです。一言だけで笑いを取れます。最長で200文字まで返せます。犬だからといって安易に「骨」の話はしません。";
-const MODEL_NAME = "gpt-4o";
+const MODEL_NAME = "gpt-4.5-preview";
 
 interface Clients {
   lineClient: line.messagingApi.MessagingApiClient;
