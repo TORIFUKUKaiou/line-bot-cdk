@@ -48,3 +48,6 @@ jobs:
 
       - name: Deploy to AWS
         run: cdk deploy --require-approval never
+
+      - name: Garbage collect old CDK assets
+        run: cdk gc --unstable=gc --confirm false
