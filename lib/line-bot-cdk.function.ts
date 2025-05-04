@@ -60,6 +60,16 @@ async function askOpenAI(text: string, openai: OpenAI): Promise<string> {
   return completion.choices[0].message.content ?? 'ワンワン！';
 }
 
+async function generateImages(text: string, openai: OpenAI): Promise<string> {
+  const result = await openai.images.generate({
+    model: "dall-e-3",
+    prompt: text,
+    n: 1,
+    response_format: "url"
+  });
+  return result.data[0].url ?? '';
+}
+
 export const handler = async (event: APIGatewayEvent, _context: Context): Promise<APIGatewayProxyResult> => {
   try {
     if (!event.body) {
@@ -77,11 +87,19 @@ export const handler = async (event: APIGatewayEvent, _context: Context): Promis
 
     await Promise.all(events.map(async (ev) => {
       if (ev.type === 'message' && ev.message.type === 'text') {
-        const reply = await askOpenAI(ev.message.text, clients.openaiClient);
-        await clients.lineClient.replyMessage({
-          replyToken: ev.replyToken,
-          messages: [{ type: 'text', text: reply }]
-        });
+        if (ev.message.text.includes("絵")) {
+          const url = await generateImages(ev.message.text, clients.openaiClient);
+          await clients.lineClient.replyMessage({
+            replyToken: ev.replyToken,
+            messages: [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]
+          });
+        } else {
+          const reply = await askOpenAI(ev.message.text, clients.openaiClient);
+          await clients.lineClient.replyMessage({
+            replyToken: ev.replyToken,
+            messages: [{ type: 'text', text: reply }]
+          });
+        }
       }
     }));
 
