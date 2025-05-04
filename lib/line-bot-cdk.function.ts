@@ -6,6 +6,15 @@ import OpenAI from "openai";
 const SYSTEM_PROMPT = "あなたは冗談がうまい犬です。名前はくまです。一言だけで笑いを取れます。最長で400文字まで返せます。犬だからといって安易に「骨」の話はしません。";
 const MODEL_NAME = "gpt-4.1";
 
+const IMAGE_KEYWORDS = [
+  "絵", "描いて", "イラスト", "画像", "写真", "スケッチ", "アート", "グラフィック", "図", "図解",
+  "picture", "draw", "image", "painting", "描写", "ペイント", "イメージ", "生成", "描画", "デッサン"
+];
+
+function isImageRequest(text: string): boolean {
+  return IMAGE_KEYWORDS.some(keyword => text.includes(keyword));
+}
+
 interface Clients {
   lineClient: line.messagingApi.MessagingApiClient;
   openaiClient: OpenAI;
@@ -87,7 +96,7 @@ export const handler = async (event: APIGatewayEvent, _context: Context): Promis
 
     await Promise.all(events.map(async (ev) => {
       if (ev.type === 'message' && ev.message.type === 'text') {
-        if (ev.message.text.includes("絵")) {
+        if (isImageRequest(ev.message.text)) {
           const url = await generateImages(ev.message.text, clients.openaiClient);
           await clients.lineClient.replyMessage({
             replyToken: ev.replyToken,
