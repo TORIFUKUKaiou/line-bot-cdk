@@ -18,7 +18,7 @@ export class LineBotCdk extends Construct {
         OPENAI_API_KEY_PARAM_NAME: process.env.OPENAI_API_KEY_PARAM_NAME || '',
       },
       logRetention: logs.RetentionDays.ONE_DAY,
-      timeout: Duration.seconds(30),
+      timeout: Duration.seconds(60),
     });
 
     // SSMへのアクセス権限を付与
