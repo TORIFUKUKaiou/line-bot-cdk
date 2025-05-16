@@ -130,34 +130,6 @@ export const handler = async (event: APIGatewayEvent, _context: Context): Promis
     await Promise.all(events.map(async (ev) => {
       if (ev.type === 'message' && ev.message.type === 'text') {
         if (isImageRequest(ev.message.text)) {
-          // ソースタイプごとに適切なchatIdを取得
-          let chatId: string | undefined;
-          if (ev.source) {
-            switch (ev.source.type) {
-              case 'user':
-                chatId = ev.source.userId;
-                break;
-              case 'group':
-                chatId = ev.source.groupId;
-                break;
-              case 'room':
-                chatId = ev.source.roomId;
-                break;
-            }
-          }
-
-          // ローディング表示を開始
-          if (chatId) {
-            try {
-              await clients.lineClient.showLoadingAnimation({
-                chatId: chatId,
-                loadingSeconds: 60 // 最大60秒
-              });
-            } catch (loadingError) {
-              console.warn('ローディング表示エラー:', loadingError);
-            }
-          }
-
           const url = await generateImages(ev.message.text, clients.openaiClient);
           await clients.lineClient.replyMessage({
             replyToken: ev.replyToken,
