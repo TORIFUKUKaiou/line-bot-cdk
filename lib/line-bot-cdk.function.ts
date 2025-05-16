@@ -1,11 +1,14 @@
 import { Context, APIGatewayProxyResult, APIGatewayEvent } from 'aws-lambda';
 import * as line from '@line/bot-sdk'
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import OpenAI from "openai";
+import { randomUUID } from 'crypto';
 
 const SYSTEM_PROMPT = "あなたは冗談がうまい犬です。名前はくまです。一言だけで笑いを取れます。最長で400文字まで返せます。犬だからといって安易に「骨」の話はしません。";
 const MODEL_NAME = "gpt-4.1";
 const CREATE_IMAGE_MODEL = "dall-e-2"
+const SIZE = "256x256"
 
 const IMAGE_KEYWORDS = [
   "絵", "描いて", "イラスト", "画像", "写真", "スケッチ", "アート", "グラフィック", "図", "図解",
@@ -23,6 +26,7 @@ interface Clients {
 }
 
 const ssmClient = new SSMClient({ region: process.env.AWS_REGION });
+const s3Client = new S3Client({ region: process.env.AWS_REGION });
 
 async function getParameter(name: string): Promise<string> {
   try {
@@ -71,13 +75,41 @@ async function askOpenAI(text: string, openai: OpenAI): Promise<string> {
 }
 
 async function generateImages(text: string, openai: OpenAI): Promise<string> {
-  const result = await openai.images.generate({
-    model: CREATE_IMAGE_MODEL,
-    prompt: text,
-    n: 1,
-    response_format: "url"
-  });
-  return result.data[0].url ?? '';
+  try {
+    // OpenAIでBase64形式の画像を生成
+    const result = await openai.images.generate({
+      model: CREATE_IMAGE_MODEL,
+      prompt: text,
+      n: 1,
+      response_format: "b64_json",
+      size: SIZE
+    });
+    
+    if (!result.data[0].b64_json) {
+      throw new Error('画像生成に失敗しました');
+    }
+    
+    // Base64データをバッファに変換
+    const imageBuffer = Buffer.from(result.data[0].b64_json, "base64");
+    
+    // S3に保存するためのユニークなファイル名を生成
+    const fileName = `${randomUUID()}.png`;
+    
+    // S3にアップロード
+    await s3Client.send(new PutObjectCommand({
+      Bucket: process.env.IMAGES_BUCKET_NAME,
+      Key: fileName,
+      Body: imageBuffer,
+      ContentType: 'image/png',
+      ACL: 'public-read' // パブリックアクセス可能に設定
+    }));
+    
+    // S3オブジェクトのURLを構築して返す
+    return `https://${process.env.IMAGES_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+  } catch (error) {
+    console.error('画像生成エラー:', error);
+    throw error;
+  }
 }
 
 export const handler = async (event: APIGatewayEvent, _context: Context): Promise<APIGatewayProxyResult> => {
