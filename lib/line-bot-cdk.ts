@@ -12,14 +12,8 @@ export class LineBotCdk extends Construct {
 
     // S3バケットを作成
     const imagesBucket = new s3.Bucket(this, 'ImagesBucket', {
-      publicReadAccess: true,  // パブリック読み取りアクセスを許可
+      publicReadAccess: false,  // パブリックアクセスを無効化
       enforceSSL: true,  // HTTPSアクセスを強制
-      blockPublicAccess: new s3.BlockPublicAccess({
-        blockPublicAcls: false,
-        blockPublicPolicy: false,
-        ignorePublicAcls: false,
-        restrictPublicBuckets: false
-      }),
       cors: [
         {
           allowedMethods: [s3.HttpMethods.GET],
@@ -61,22 +55,22 @@ export class LineBotCdk extends Construct {
       ],
     });
 
-    // S3バケットへの書き込み権限を付与
-    const s3WritePolicy = new iam.PolicyStatement({
+    // S3バケットへの権限を付与
+    const s3Policy = new iam.PolicyStatement({
       actions: [
         's3:PutObject',
-        's3:PutObjectAcl', // パブリックアクセス可能にするために必要
+        's3:GetObject',  // 署名付きURL生成のため必要
       ],
       effect: iam.Effect.ALLOW,
       resources: [
-        `${imagesBucket.bucketArn}/*` // オブジェクトレベルの権限のみ必要
+        `${imagesBucket.bucketArn}/*`
       ],
     });
 
     // Lambda関数にSSMへのアクセス権限を付与
     const lambdaRole = lineBotFunction.role as iam.Role;
     lambdaRole.addToPolicy(ssmRunCmdPolicy);
-    lambdaRole.addToPolicy(s3WritePolicy); // S3アクセス権限を追加
+    lambdaRole.addToPolicy(s3Policy); // S3アクセス権限を追加
 
     // Lambda関数URLを有効化
     const functionUrl = lineBotFunction.addFunctionUrl({
