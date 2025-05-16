@@ -1,7 +1,8 @@
 import { Context, APIGatewayProxyResult, APIGatewayEvent } from 'aws-lambda';
 import * as line from '@line/bot-sdk'
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import OpenAI from "openai";
 import { randomUUID } from 'crypto';
 
@@ -95,17 +96,23 @@ async function generateImages(text: string, openai: OpenAI): Promise<string> {
     // S3に保存するためのユニークなファイル名を生成
     const fileName = `${randomUUID()}.png`;
     
-    // S3にアップロード
+    // S3にアップロード - ACLパラメータを削除
     await s3Client.send(new PutObjectCommand({
       Bucket: process.env.IMAGES_BUCKET_NAME,
       Key: fileName,
       Body: imageBuffer,
-      ContentType: 'image/png',
-      ACL: 'public-read' // パブリックアクセス可能に設定
+      ContentType: 'image/png'
     }));
     
-    // S3オブジェクトのURLを構築して返す
-    return `https://${process.env.IMAGES_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+    // 署名付きURLを生成（有効期限7日）
+    const command = new GetObjectCommand({
+      Bucket: process.env.IMAGES_BUCKET_NAME,
+      Key: fileName
+    });
+    const url = await getSignedUrl(s3Client, command, { expiresIn: 60 * 60 * 24 * 7 });
+    
+    // 署名付きURLを返す
+    return url;
   } catch (error) {
     console.error('画像生成エラー:', error);
     throw error;
