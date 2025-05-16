@@ -46,7 +46,8 @@ export class LineBotCdk extends Construct {
         IMAGES_BUCKET_NAME: imagesBucket.bucketName, // バケット名を環境変数に追加
       },
       logRetention: logs.RetentionDays.ONE_DAY,
-      timeout: Duration.seconds(60),
+      timeout: Duration.seconds(180), // 60秒から180秒に延長
+      memorySize: 256, // 128MBから512MBに増加
     });
 
     // SSMへのアクセス権限を付与
