@@ -137,11 +137,18 @@ export const handler = async (event: APIGatewayEvent, _context: Context): Promis
     await Promise.all(events.map(async (ev) => {
       if (ev.type === 'message' && ev.message.type === 'text') {
         if (isImageRequest(ev.message.text)) {
-          const url = await generateImages(ev.message.text, clients.openaiClient);
-          await clients.lineClient.replyMessage({
-            replyToken: ev.replyToken,
-            messages: [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]
-          });
+          try {
+            const url = await generateImages(ev.message.text, clients.openaiClient);
+            await clients.lineClient.replyMessage({
+              replyToken: ev.replyToken,
+              messages: [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]
+            });
+          } catch (error: any) {
+            await clients.lineClient.replyMessage({
+              replyToken: ev.replyToken,
+              messages: [{ type: 'text', text: `画像生成に失敗しました: ${error.message}` }]
+            });
+          }
         } else {
           const reply = await askOpenAI(ev.message.text, clients.openaiClient);
           await clients.lineClient.replyMessage({
