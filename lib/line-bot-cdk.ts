@@ -41,7 +41,7 @@ export class LineBotCdk extends Construct {
       },
       logRetention: logs.RetentionDays.ONE_DAY,
       timeout: Duration.seconds(180), // 60秒から180秒に延長
-      memorySize: 256, // 128MBから512MBに増加
+      memorySize: 256, // メモリを256MBに設定
     });
 
     // SSMへのアクセス権限を付与
