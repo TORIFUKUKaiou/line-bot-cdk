@@ -11,9 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      CHANNEL_SECRET_PARAM_NAME: "/line-bot/kuma/channelSecret"
-      CHANNEL_ACCESS_TOKEN_PARAM_NAME: "/line-bot/kuma/channelAccessToken"
-      OPENAI_API_KEY_PARAM_NAME: "/line-bot/kuma/OpenAIAPIKEY"
+      CHANNEL_SECRET_PARAM_NAME: ${{ vars.CHANNEL_SECRET_PARAM_NAME }}
+      CHANNEL_ACCESS_TOKEN_PARAM_NAME: ${{ vars.CHANNEL_ACCESS_TOKEN_PARAM_NAME }}
+      OPENAI_API_KEY_PARAM_NAME: ${{ vars.OPENAI_API_KEY_PARAM_NAME }}
+      EMAIL_ADDRESS: ${{ vars.EMAIL_ADDRESS }}
 
     steps:
       - name: Checkout repository
