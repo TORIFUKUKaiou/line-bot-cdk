@@ -5,6 +5,10 @@ import { Runtime, FunctionUrlAuthType } from 'aws-cdk-lib/aws-lambda'
 import { Duration, CfnOutput } from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 
 export class LineBotCdk extends Construct {
   constructor(scope: Construct, id: string) {
@@ -86,5 +90,25 @@ export class LineBotCdk extends Construct {
     new CfnOutput(this, 'ImagesBucketUrl', {
       value: `https://${imagesBucket.bucketDomainName}`,
     });
+
+    // SNSトピックの作成
+    const errorNotificationTopic = new sns.Topic(this, 'ErrorNotificationTopic', {
+      displayName: 'Lambda Error Notifications',
+    });
+
+    // SNSトピックにメールサブスクリプションを追加
+    errorNotificationTopic.addSubscription(
+      new subscriptions.EmailSubscription('torifuku.kaiou@gmail.com')
+    );
+
+    // CloudWatchアラームの作成
+    const lambdaErrorAlarm = new cloudwatch.Alarm(this, 'LambdaErrorAlarm', {
+      metric: lineBotFunction.metricErrors(), // Lambda関数のエラーメトリクス
+      threshold: 1, // エラーが1回以上発生した場合にアラームを発動
+      evaluationPeriods: 1, // 1つの評価期間でアラームを発動
+      alarmDescription: 'Alarm for Lambda function errors',
+    });
+
+    lambdaErrorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(errorNotificationTopic));
   }
 }
