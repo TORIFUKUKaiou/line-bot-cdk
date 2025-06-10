@@ -98,7 +98,7 @@ export class LineBotCdk extends Construct {
 
     // SNSトピックにメールサブスクリプションを追加
     errorNotificationTopic.addSubscription(
-      new subscriptions.EmailSubscription('torifuku.kaiou@gmail.com')
+      new subscriptions.EmailSubscription(process.env.EMAIL_ADDRESS || '')
     );
 
     // CloudWatchアラームの作成
