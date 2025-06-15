@@ -27,7 +27,13 @@ async function isImageRequest(
       ],
       temperature: 0,
     });
-    const answer = completion.choices[0].message.content?.toLowerCase() ?? "";
+    if (!completion.choices?.length) {
+      console.warn("Unexpected OpenAI response", completion);
+      return false;
+    }
+    const msg = completion.choices[0].message;
+    const content = msg && "content" in msg ? msg.content : undefined;
+    const answer = content?.toLowerCase() ?? "";
     return answer.includes("yes") || answer.includes("はい");
   } catch (error) {
     console.error("isImageRequest error:", error);
