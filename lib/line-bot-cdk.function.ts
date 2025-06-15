@@ -11,13 +11,23 @@ const MODEL_NAME = "gpt-4.1";
 const CREATE_IMAGE_MODEL = "dall-e-2"
 const SIZE = "256x256"
 
-const IMAGE_KEYWORDS = [
-  "絵", "描いて", "イラスト", "画像", "写真", "スケッチ", "アート", "グラフィック", "図", "図解",
-  "picture", "draw", "image", "painting", "描写", "ペイント", "イメージ", "生成", "描画", "デッサン"
-];
+const IMAGE_DETECT_PROMPT =
+  "ユーザーが画像生成を望んでいるかだけを yes か no で答えてください。";
 
-function isImageRequest(text: string): boolean {
-  return IMAGE_KEYWORDS.some(keyword => text.includes(keyword));
+async function isImageRequest(
+  text: string,
+  openai: OpenAI
+): Promise<boolean> {
+  const completion = await openai.chat.completions.create({
+    model: MODEL_NAME,
+    messages: [
+      { role: "system", content: IMAGE_DETECT_PROMPT },
+      { role: "user", content: text }
+    ],
+    temperature: 0,
+  });
+  const answer = completion.choices[0].message.content?.toLowerCase() ?? "";
+  return answer.includes("yes") || answer.includes("はい");
 }
 
 interface Clients {
@@ -136,7 +146,7 @@ export const handler = async (event: APIGatewayEvent, _context: Context): Promis
 
     await Promise.all(events.map(async (ev) => {
       if (ev.type === 'message' && ev.message.type === 'text') {
-        if (isImageRequest(ev.message.text)) {
+        if (await isImageRequest(ev.message.text, clients.openaiClient)) {
           try {
             const url = await generateImages(ev.message.text, clients.openaiClient);
             await clients.lineClient.replyMessage({
