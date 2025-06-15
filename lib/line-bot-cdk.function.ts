@@ -33,8 +33,8 @@ async function isImageRequest(
     }
     const msg = completion.choices[0].message;
     const content = msg && "content" in msg ? msg.content : undefined;
-    const answer = content?.toLowerCase() ?? "";
-    return answer.includes("yes") || answer.includes("はい");
+    const answer = content ?? "";
+    return /^\s*yes\s*$/i.test(answer) || /^\s*はい\s*$/.test(answer);
   } catch (error) {
     console.error("isImageRequest error:", error);
     return false;
