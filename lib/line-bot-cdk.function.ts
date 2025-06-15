@@ -18,16 +18,21 @@ async function isImageRequest(
   text: string,
   openai: OpenAI
 ): Promise<boolean> {
-  const completion = await openai.chat.completions.create({
-    model: MODEL_NAME,
-    messages: [
-      { role: "system", content: IMAGE_DETECT_PROMPT },
-      { role: "user", content: text }
-    ],
-    temperature: 0,
-  });
-  const answer = completion.choices[0].message.content?.toLowerCase() ?? "";
-  return answer.includes("yes") || answer.includes("はい");
+  try {
+    const completion = await openai.chat.completions.create({
+      model: MODEL_NAME,
+      messages: [
+        { role: "system", content: IMAGE_DETECT_PROMPT },
+        { role: "user", content: text }
+      ],
+      temperature: 0,
+    });
+    const answer = completion.choices[0].message.content?.toLowerCase() ?? "";
+    return answer.includes("yes") || answer.includes("はい");
+  } catch (error) {
+    console.error("isImageRequest error:", error);
+    return false;
+  }
 }
 
 interface Clients {
