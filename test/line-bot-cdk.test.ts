@@ -1,17 +1,16 @@
-// import * as cdk from 'aws-cdk-lib';
-// import { Template } from 'aws-cdk-lib/assertions';
-// import * as LineBotCdk from '../lib/line-bot-cdk-stack';
+import * as cdk from 'aws-cdk-lib';
+import { Template } from 'aws-cdk-lib/assertions';
+import { LineBotCdkStack } from '../lib/line-bot-cdk-stack';
 
-// example test. To run these tests, uncomment this file along with the
-// example resource in lib/line-bot-cdk-stack.ts
-test('SQS Queue Created', () => {
-//   const app = new cdk.App();
-//     // WHEN
-//   const stack = new LineBotCdk.LineBotCdkStack(app, 'MyTestStack');
-//     // THEN
-//   const template = Template.fromStack(stack);
+// Test that the stack defines at least one Lambda function
+// This ensures the LineBot construct is synthesized correctly
 
-//   template.hasResourceProperties('AWS::SQS::Queue', {
-//     VisibilityTimeout: 300
-//   });
+test('Stack has a Lambda function', () => {
+  const app = new cdk.App();
+  // Provide a dummy email so the stack can create the SNS subscription
+  process.env.EMAIL_ADDRESS = 'test@example.com';
+  const stack = new LineBotCdkStack(app, 'TestStack');
+  const template = Template.fromStack(stack);
+  const functions = template.findResources('AWS::Lambda::Function');
+  expect(Object.keys(functions).length).toBeGreaterThan(0);
 });
