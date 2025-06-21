@@ -7,6 +7,8 @@ import { LineBotCdkStack } from '../lib/line-bot-cdk-stack';
 
 test('Stack has a Lambda function', () => {
   const app = new cdk.App();
+  // Provide a dummy email so the stack can create the SNS subscription
+  process.env.EMAIL_ADDRESS = 'test@example.com';
   const stack = new LineBotCdkStack(app, 'TestStack');
   const template = Template.fromStack(stack);
   const functions = template.findResources('AWS::Lambda::Function');

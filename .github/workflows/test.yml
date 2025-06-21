@@ -8,6 +8,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      EMAIL_ADDRESS: ${{ vars.EMAIL_ADDRESS }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
