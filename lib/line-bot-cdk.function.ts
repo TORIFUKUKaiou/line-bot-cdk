@@ -90,7 +90,7 @@ async function askOpenAI(text: string, openai: OpenAI): Promise<string> {
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: text }
     ],
-    temperature: 1.0,
+    temperature: 1.2,
     store: true,
   });
   return completion.choices[0].message.content ?? 'ワンワン！';
