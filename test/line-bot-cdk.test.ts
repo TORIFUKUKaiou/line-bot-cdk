@@ -7,7 +7,10 @@ import { LineBotCdkStack } from '../lib/line-bot-cdk-stack';
 
 test('Stack has a Lambda function', () => {
   const app = new cdk.App();
-  // Provide a dummy email so the stack can create the SNS subscription
+  // Provide dummy environment variables so the stack can be instantiated
+  process.env.CHANNEL_SECRET_PARAM_NAME = 'dummySecretParam';
+  process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME = 'dummyAccessTokenParam';
+  process.env.OPENAI_API_KEY_PARAM_NAME = 'dummyOpenAIApiKeyParam';
   process.env.EMAIL_ADDRESS = 'test@example.com';
   const stack = new LineBotCdkStack(app, 'TestStack');
   const template = Template.fromStack(stack);
