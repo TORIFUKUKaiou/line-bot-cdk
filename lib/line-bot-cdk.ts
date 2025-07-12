@@ -14,6 +14,20 @@ export class LineBotCdk extends Construct {
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
+    // 必須環境変数のチェック
+    const requiredEnvVars = [
+      'CHANNEL_SECRET_PARAM_NAME',
+      'CHANNEL_ACCESS_TOKEN_PARAM_NAME', 
+      'OPENAI_API_KEY_PARAM_NAME',
+      'EMAIL_ADDRESS'
+    ];
+
+    for (const envVar of requiredEnvVars) {
+      if (!process.env[envVar]) {
+        throw new Error(`Required environment variable ${envVar} is not set`);
+      }
+    }
+
     // S3バケットを作成
     const imagesBucket = new s3.Bucket(this, 'ImagesBucket', {
       publicReadAccess: false,  // パブリックアクセスを無効化
