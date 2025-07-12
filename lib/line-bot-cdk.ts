@@ -18,7 +18,8 @@ export class LineBotCdk extends Construct {
     const requiredEnvVars = [
       'CHANNEL_SECRET_PARAM_NAME',
       'CHANNEL_ACCESS_TOKEN_PARAM_NAME', 
-      'OPENAI_API_KEY_PARAM_NAME'
+      'OPENAI_API_KEY_PARAM_NAME',
+      'EMAIL_ADDRESS'
     ];
 
     for (const envVar of requiredEnvVars) {
