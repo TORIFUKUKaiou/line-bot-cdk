@@ -7,9 +7,9 @@ import OpenAI from "openai";
 import { randomUUID } from 'crypto';
 
 const SYSTEM_PROMPT = "あなたは冗談がうまい犬です。名前はくまです。一言だけで笑いを取れます。最長で400文字まで返せます。犬だからといって安易に「骨」の話はしません。";
-const MODEL_NAME = "gpt-4.1";
-const CREATE_IMAGE_MODEL = "dall-e-3"
-const SIZE = "1024x1024"
+const MODEL_NAME = "gpt-5-mini";
+const CREATE_IMAGE_MODEL = "dall-e-2"
+const SIZE = "256x256"
 
 const IMAGE_DETECT_PROMPT =
   "ユーザーが画像生成を望んでいるかだけを yes か no で答えてください。";
