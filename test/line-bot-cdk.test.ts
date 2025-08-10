@@ -17,3 +17,4 @@ test('Stack has a Lambda function', () => {
   const functions = template.findResources('AWS::Lambda::Function');
   expect(Object.keys(functions).length).toBeGreaterThan(0);
 });
+
