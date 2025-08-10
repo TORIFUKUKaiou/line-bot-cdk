@@ -130,7 +130,7 @@ export class LineBotCdk extends Construct {
       logGroup: lineBotFunction.logGroup,
       metricNamespace: 'LineBot/OpenAI',
       metricName: 'OpenAIErrors',
-      filterPattern: logs.FilterPattern.literal('[OPENAI_ERROR]'),
+      filterPattern: logs.FilterPattern.literal('"[OPENAI_ERROR]"'),
       metricValue: '1',
       defaultValue: 0
     });
