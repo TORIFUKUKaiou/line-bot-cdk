@@ -25,7 +25,6 @@ async function isImageRequest(
         { role: "system", content: IMAGE_DETECT_PROMPT },
         { role: "user", content: text }
       ],
-      temperature: 0,
     });
     if (!completion.choices?.length) {
       console.warn("Unexpected OpenAI response", completion);
@@ -90,7 +89,6 @@ async function askOpenAI(text: string, openai: OpenAI): Promise<string> {
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: text }
     ],
-    temperature: 1.2,
     store: true,
   });
   return completion.choices[0].message.content ?? 'ワンワン！';
