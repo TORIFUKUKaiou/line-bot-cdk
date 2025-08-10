@@ -88,7 +88,7 @@ export class LineBotCdk extends Construct {
     // Lambda関数にSSMへのアクセス権限を付与
     const lambdaRole = lineBotFunction.role as iam.Role;
     lambdaRole.addToPolicy(ssmRunCmdPolicy);
-    lambdaRole.addToPolicy(s3Policy); // S3アクセス権限を追加
+    lambdaRole.addToPolicy(s3Policy);
 
     // Lambda関数URLを有効化
     const functionUrl = lineBotFunction.addFunctionUrl({
@@ -124,5 +124,33 @@ export class LineBotCdk extends Construct {
     });
 
     lambdaErrorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(errorNotificationTopic));
+
+    // OpenAI APIエラー用メトリクスフィルター（コスト0）
+    const openaiErrorMetricFilter = new logs.MetricFilter(this, 'OpenAIErrorMetricFilter', {
+      logGroup: lineBotFunction.logGroup,
+      metricNamespace: 'LineBot/OpenAI',
+      metricName: 'OpenAIErrors',
+      filterPattern: logs.FilterPattern.literal('[OPENAI_ERROR]'),
+      metricValue: '1',
+      defaultValue: 0
+    });
+
+    // OpenAI APIエラーアラーム（メトリクスフィルター使用）
+    const openaiErrorAlarm = new cloudwatch.Alarm(this, 'OpenAIErrorAlarm', {
+      metric: openaiErrorMetricFilter.metric({
+        statistic: 'Sum',
+        period: Duration.minutes(5)
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      alarmDescription: 'Alarm for OpenAI API errors (Chat & Image)',
+    });
+
+    openaiErrorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(errorNotificationTopic));
+
+    // SNSトピックARNを出力
+    new CfnOutput(this, 'ErrorNotificationTopicArn', {
+      value: errorNotificationTopic.topicArn,
+    });
   }
 }

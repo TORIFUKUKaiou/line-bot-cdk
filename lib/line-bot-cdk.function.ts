@@ -2,6 +2,7 @@ import { Context, APIGatewayProxyResult, APIGatewayEvent } from 'aws-lambda';
 import * as line from '@line/bot-sdk'
 import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+// CloudWatch カスタムメトリクス削除（コスト削減のため）
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import OpenAI from "openai";
 import { randomUUID } from 'crypto';
@@ -37,6 +38,7 @@ async function isImageRequest(
     return /^\s*yes\s*$/i.test(answer) || /^\s*はい\s*$/.test(answer);
   } catch (error) {
     console.error("isImageRequest error:", error);
+    logOpenAIError('ChatAPI', error);
     return false;
   }
 }
@@ -49,6 +51,17 @@ interface Clients {
 
 const ssmClient = new SSMClient({ region: process.env.AWS_REGION });
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
+// CloudWatch クライアント削除（コスト削減のため）
+
+// 構造化ログでエラー記録（CloudWatch メトリクスフィルター用）
+function logOpenAIError(errorType: string, error: any): void {
+  console.error('[OPENAI_ERROR]', {
+    errorType,
+    timestamp: new Date().toISOString(),
+    message: error.message || 'Unknown error',
+    stack: error.stack
+  });
+}
 
 async function getParameter(name: string): Promise<string> {
   try {
@@ -84,15 +97,21 @@ async function initialize(): Promise<Clients> {
 }
 
 async function askOpenAI(text: string, openai: OpenAI): Promise<string> {
-  const completion = await openai.chat.completions.create({
-    model: MODEL_NAME,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: text }
-    ],
-    store: true,
-  });
-  return completion.choices[0].message.content ?? 'ワンワン！';
+  try {
+    const completion = await openai.chat.completions.create({
+      model: MODEL_NAME,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: text }
+      ],
+      store: true,
+    });
+    return completion.choices[0].message.content ?? 'ワンワン！';
+  } catch (error) {
+    console.error('OpenAI Chat API error:', error);
+    logOpenAIError('ChatAPI', error);
+    throw error;
+  }
 }
 
 async function generateImages(text: string, openai: OpenAI): Promise<string> {
@@ -134,6 +153,7 @@ async function generateImages(text: string, openai: OpenAI): Promise<string> {
     return url;
   } catch (error) {
     console.error('画像生成エラー:', error);
+    logOpenAIError('ImageAPI', error);
     throw error;
   }
 }
@@ -165,15 +185,22 @@ export const handler = async (event: APIGatewayEvent, _context: Context): Promis
           } catch (error: any) {
             await clients.lineClient.replyMessage({
               replyToken: ev.replyToken,
-              messages: [{ type: 'text', text: `画像生成に失敗しました: ${error.message}` }]
+              messages: [{ type: 'text', text: '画像生成に失敗しました。しばらく時間をおいてお試しください。' }]
             });
           }
         } else {
-          const reply = await askOpenAI(ev.message.text, clients.openaiClient);
-          await clients.lineClient.replyMessage({
-            replyToken: ev.replyToken,
-            messages: [{ type: 'text', text: reply }]
-          });
+          try {
+            const reply = await askOpenAI(ev.message.text, clients.openaiClient);
+            await clients.lineClient.replyMessage({
+              replyToken: ev.replyToken,
+              messages: [{ type: 'text', text: reply }]
+            });
+          } catch (error: any) {
+            await clients.lineClient.replyMessage({
+              replyToken: ev.replyToken,
+              messages: [{ type: 'text', text: '申し訳ありません。一時的にサービスが利用できません。' }]
+            });
+          }
         }
       }
     }));
