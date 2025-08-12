@@ -123,13 +123,14 @@ async function generateImages(text: string, openai: OpenAI): Promise<string> {
       size: SIZE,
       quality: "medium",
     });
-    
-    if (!result.data[0].b64_json) {
+
+    const imageData = result.data?.[0]?.b64_json;
+    if (!imageData) {
       throw new Error('画像生成に失敗しました');
     }
-    
+
     // Base64データをバッファに変換
-    const imageBuffer = Buffer.from(result.data[0].b64_json, "base64");
+    const imageBuffer = Buffer.from(imageData, "base64");
     
     // S3に保存するためのユニークなファイル名を生成
     const fileName = `${randomUUID()}.png`;
