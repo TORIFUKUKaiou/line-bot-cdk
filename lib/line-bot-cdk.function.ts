@@ -9,8 +9,8 @@ import { randomUUID } from 'crypto';
 
 const SYSTEM_PROMPT = "あなたは冗談がうまい犬です。名前はくまです。一言だけで笑いを取れます。最長で400文字まで返せます。犬だからといって安易に「骨」の話はしません。";
 const MODEL_NAME = "gpt-5-mini";
-const CREATE_IMAGE_MODEL = "dall-e-3"
-// DALL·E 3 supports a minimum size of 1024x1024
+const CREATE_IMAGE_MODEL = "gpt-image-1"
+// gpt-image-1 supports a minimum size of 1024x1024
 const SIZE = "1024x1024"
 
 const IMAGE_DETECT_PROMPT =
@@ -120,8 +120,8 @@ async function generateImages(text: string, openai: OpenAI): Promise<string> {
     const result = await openai.images.generate({
       model: CREATE_IMAGE_MODEL,
       prompt: text,
-      response_format: "b64_json",
-      size: SIZE
+      size: SIZE,
+      quality: "medium",
     });
     
     if (!result.data[0].b64_json) {
