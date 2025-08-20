@@ -37,8 +37,8 @@ async function isImageRequest(
     const answer = content ?? "";
     return /^\s*yes\s*$/i.test(answer) || /^\s*はい\s*$/.test(answer);
   } catch (error) {
-    console.error("isImageRequest error:", error);
-    logOpenAIError('ChatAPI', error);
+    console.error("isImageRequest error:", { error, prompt: text });
+    logOpenAIError('ChatAPI', error, text);
     return false;
   }
 }
@@ -54,12 +54,13 @@ const s3Client = new S3Client({ region: process.env.AWS_REGION });
 // CloudWatch クライアント削除（コスト削減のため）
 
 // 構造化ログでエラー記録（CloudWatch メトリクスフィルター用）
-function logOpenAIError(errorType: string, error: any): void {
+function logOpenAIError(errorType: string, error: any, prompt?: string): void {
   console.error('[OPENAI_ERROR]', {
     errorType,
     timestamp: new Date().toISOString(),
     message: error.message || 'Unknown error',
-    stack: error.stack
+    stack: error.stack,
+    prompt,
   });
 }
 
@@ -108,8 +109,8 @@ async function askOpenAI(text: string, openai: OpenAI): Promise<string> {
     });
     return completion.choices[0].message.content ?? 'ワンワン！';
   } catch (error) {
-    console.error('OpenAI Chat API error:', error);
-    logOpenAIError('ChatAPI', error);
+    console.error('OpenAI Chat API error:', { error, prompt: text });
+    logOpenAIError('ChatAPI', error, text);
     throw error;
   }
 }
@@ -153,8 +154,8 @@ async function generateImages(text: string, openai: OpenAI): Promise<string> {
     // 署名付きURLを返す
     return url;
   } catch (error) {
-    console.error('画像生成エラー:', error);
-    logOpenAIError('ImageAPI', error);
+    console.error('画像生成エラー:', { error, prompt: text });
+    logOpenAIError('ImageAPI', error, text);
     throw error;
   }
 }
