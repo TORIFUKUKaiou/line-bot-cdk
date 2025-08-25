@@ -17,7 +17,7 @@ const IMAGE_DETECT_PROMPT =
   "ユーザーが画像生成を望んでいるかだけを yes か no で答えてください。";
 
 const IMAGE_PROMPT_PREFIX =
-  "あなたの名前は「くま」という名の犬です。つまり「くま」画伯です。個展を何度も開いていおり、いつも盛況です。";
+  "あなたの名前は「くま」という名の犬です。つまり「くま」画伯です。個展を何度も開いており、いつも盛況です。";
 
 async function isImageRequest(
   text: string,
