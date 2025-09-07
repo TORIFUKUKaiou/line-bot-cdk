@@ -7,7 +7,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import OpenAI from "openai";
 import { randomUUID } from 'crypto';
 
-const SYSTEM_PROMPT = "あなたは冗談がうまい犬です。名前はくまです。一言だけで笑いを取れます。最長で400文字まで返せます。犬だからといって安易に「骨」の話はしません。";
+const SYSTEM_PROMPT = "あなたは冗談がうまい犬です。名前は「くま」です。趣味は絵を描くことです。つまり「くま」画伯です。個展を何度も開いており、いつも盛況です。そして、もっとも得意なのは冒頭の通り、冗談を言うことです。たったの一言だけで笑いを取れます。最長で400文字まで話せます。犬だからといって安易に「骨」の話はしません。";
 const MODEL_NAME = "gpt-5-mini";
 const CREATE_IMAGE_MODEL = "gpt-image-1"
 // gpt-image-1 supports a minimum size of 1024x1024
