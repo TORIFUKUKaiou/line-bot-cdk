@@ -24,21 +24,20 @@ async function isImageRequest(
   openai: OpenAI
 ): Promise<boolean> {
   try {
-    const completion = await openai.chat.completions.create({
+    const response = await openai.responses.create({
       model: MODEL_NAME,
-      messages: [
+      input: [
         { role: "system", content: IMAGE_DETECT_PROMPT },
         { role: "user", content: text }
       ],
     });
-    if (!completion.choices?.length) {
-      console.warn("Unexpected OpenAI response", completion);
+
+    const answer = response.output_text?.trim();
+    if (!answer) {
+      console.warn("Unexpected OpenAI response", response);
       return false;
     }
-    const msg = completion.choices[0].message;
-    const content = msg && "content" in msg ? msg.content : undefined;
-    const answer = content ?? "";
-    return /^\s*yes\s*$/i.test(answer) || /^\s*はい\s*$/.test(answer);
+    return /^yes$/i.test(answer) || /^はい$/.test(answer);
   } catch (error) {
     console.error("isImageRequest error:", { error, prompt: text });
     logOpenAIError('ChatAPI', error, text);
@@ -102,15 +101,14 @@ async function initialize(): Promise<Clients> {
 
 async function askOpenAI(text: string, openai: OpenAI): Promise<string> {
   try {
-    const completion = await openai.chat.completions.create({
+    const response = await openai.responses.create({
       model: MODEL_NAME,
-      messages: [
+      input: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: text }
       ],
-      store: true,
     });
-    return completion.choices[0].message.content ?? 'ワンワン！';
+    return response.output_text?.trim() || 'ワンワン！';
   } catch (error) {
     console.error('OpenAI Chat API error:', { error, prompt: text });
     logOpenAIError('ChatAPI', error, text);
