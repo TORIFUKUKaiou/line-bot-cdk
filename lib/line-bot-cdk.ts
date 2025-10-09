@@ -48,6 +48,11 @@ export class LineBotCdk extends Construct {
       ]
     });
 
+    // Lambda関数用のロググループを作成
+    const lineBotLogGroup = new logs.LogGroup(this, 'LineBotFunctionLogGroup', {
+      retention: logs.RetentionDays.ONE_DAY,
+    });
+
     // Lambda関数を作成
     const lineBotFunction = new NodejsFunction(this, 'function', {
       runtime: Runtime.NODEJS_22_X,
@@ -57,7 +62,7 @@ export class LineBotCdk extends Construct {
         OPENAI_API_KEY_PARAM_NAME: process.env.OPENAI_API_KEY_PARAM_NAME || '',
         IMAGES_BUCKET_NAME: imagesBucket.bucketName, // バケット名を環境変数に追加
       },
-      logRetention: logs.RetentionDays.ONE_DAY,
+      logGroup: lineBotLogGroup,
       timeout: Duration.seconds(180), // 60秒から180秒に延長
       memorySize: 256, // メモリを256MBに設定
     });
