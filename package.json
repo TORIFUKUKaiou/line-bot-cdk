@@ -11,23 +11,23 @@
     "cdk": "cdk"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.155",
+    "@types/aws-lambda": "^8.10.157",
     "@types/jest": "^30.0.0",
-    "@types/node": "24.7.0",
-    "aws-cdk": "2.1029.4",
-    "esbuild": "^0.25.10",
+    "@types/node": "24.9.2",
+    "aws-cdk": "2.1031.0",
+    "esbuild": "^0.25.11",
     "jest": "^30.2.0",
-    "ts-jest": "^29.4.4",
+    "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
     "typescript": "~5.9.3"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.906.0",
-    "@aws-sdk/client-ssm": "^3.906.0",
-    "@aws-sdk/s3-request-presigner": "^3.906.0",
-    "@line/bot-sdk": "^10.3.0",
-    "aws-cdk-lib": "2.219.0",
+    "@aws-sdk/client-s3": "^3.919.0",
+    "@aws-sdk/client-ssm": "^3.919.0",
+    "@aws-sdk/s3-request-presigner": "^3.919.0",
+    "@line/bot-sdk": "^10.4.0",
+    "aws-cdk-lib": "2.221.0",
     "constructs": "^10.4.2",
-    "openai": "^6.2.0"
+    "openai": "^6.7.0"
   }
 }
