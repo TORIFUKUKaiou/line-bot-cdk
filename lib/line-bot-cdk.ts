@@ -64,7 +64,7 @@ export class LineBotCdk extends Construct {
 
     // Lambda関数を作成
     const lineBotFunction = new NodejsFunction(this, 'function', {
-      runtime: Runtime.NODEJS_22_X,
+      runtime: Runtime.NODEJS_24_X,
       environment: {
         CHANNEL_SECRET_PARAM_NAME: process.env.CHANNEL_SECRET_PARAM_NAME || '',
         CHANNEL_ACCESS_TOKEN_PARAM_NAME: process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME || '',

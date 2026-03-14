@@ -14,7 +14,7 @@
     "@types/aws-lambda": "^8.10.157",
     "@types/jest": "^30.0.0",
     "@types/node": "24.9.2",
-    "aws-cdk": "2.1031.0",
+    "aws-cdk": "^2.1111.0",
     "esbuild": "^0.25.11",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.5",
@@ -27,7 +27,7 @@
     "@aws-sdk/client-ssm": "^3.919.0",
     "@aws-sdk/s3-request-presigner": "^3.919.0",
     "@line/bot-sdk": "^10.4.0",
-    "aws-cdk-lib": "2.221.0",
+    "aws-cdk-lib": "^2.243.0",
     "constructs": "^10.4.2",
     "openai": "^6.7.0"
   }
