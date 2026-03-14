@@ -7,8 +7,11 @@ import OpenAI from 'openai';
 import { randomUUID } from 'crypto';
 import {
   clampConversationMemory,
+  buildConversationMemoryPk,
+  buildSharedConversationMemoryPk,
   loadConversationMemory,
-  saveConversationMemory,
+  loadConversationMemoryByPk,
+  saveConversationMemoryByPk,
   truncateText,
 } from './memory';
 import {
@@ -22,7 +25,12 @@ import {
   OPENAI_FALLBACK_MESSAGE,
   SUMMARY_MODEL_NAME,
 } from './prompts';
-import { ConversationMemory, EMPTY_CONVERSATION_MEMORY } from './types';
+import {
+  ConversationMemory,
+  ConversationMemoryContext,
+  ConversationMemoryKind,
+  EMPTY_CONVERSATION_MEMORY,
+} from './types';
 
 interface Clients {
   lineClient: line.messagingApi.MessagingApiClient;
@@ -182,13 +190,13 @@ async function sendImageReply(
 
 async function askOpenAI(
   text: string,
-  memory: ConversationMemory,
+  context: ConversationMemoryContext,
   openai: OpenAI
 ): Promise<string> {
   try {
     const response = await openai.responses.create({
       model: MODEL_NAME,
-      input: buildReplyInput(text, memory),
+      input: buildReplyInput(text, context),
     });
 
     return response.output_text?.trim() || 'ワンワン！';
@@ -203,12 +211,13 @@ async function summarizeConversationMemory(
   previousMemory: ConversationMemory,
   userMessage: string,
   assistantReply: string,
+  kind: ConversationMemoryKind,
   openai: OpenAI
 ): Promise<ConversationMemory> {
   try {
     const response = await openai.responses.create({
       model: SUMMARY_MODEL_NAME,
-      input: buildSummaryInput(previousMemory, userMessage, assistantReply),
+      input: buildSummaryInput(previousMemory, userMessage, assistantReply, kind),
     });
 
     const output = response.output_text?.trim();
@@ -226,13 +235,13 @@ async function summarizeConversationMemory(
 
 async function generateImages(
   text: string,
-  memory: ConversationMemory,
+  context: ConversationMemoryContext,
   openai: OpenAI
 ): Promise<string> {
   try {
     const result = await openai.images.generate({
       model: CREATE_IMAGE_MODEL,
-      prompt: buildImagePrompt(text, memory),
+      prompt: buildImagePrompt(text, context),
       size: IMAGE_SIZE,
       quality: 'medium',
     });
@@ -269,14 +278,29 @@ async function generateImages(
   }
 }
 
+function getSharedConversationMemoryPkFromSource(
+  source: line.EventSource
+): string | undefined {
+  if (source.type === 'group') {
+    return buildSharedConversationMemoryPk('group', source.groupId);
+  }
+
+  if (source.type === 'room') {
+    return buildSharedConversationMemoryPk('room', source.roomId);
+  }
+
+  return undefined;
+}
+
 async function updateConversationMemoryForTurn(
-  lineUserId: string | undefined,
+  pk: string | undefined,
   previousMemory: ConversationMemory,
   userMessage: string,
   assistantReply: string,
+  kind: ConversationMemoryKind,
   openai: OpenAI
 ): Promise<void> {
-  if (!lineUserId) {
+  if (!pk) {
     return;
   }
 
@@ -285,14 +309,16 @@ async function updateConversationMemoryForTurn(
       previousMemory,
       userMessage,
       assistantReply,
+      kind,
       openai
     );
 
-    await saveConversationMemory(lineUserId, nextMemory);
+    await saveConversationMemoryByPk(pk, nextMemory);
   } catch (error) {
     console.error('Failed to update conversation memory', {
       error,
-      lineUserId,
+      pk,
+      kind,
       userMessage,
     });
   }
@@ -303,15 +329,30 @@ async function handleTextMessageEvent(
   clients: Clients
 ): Promise<void> {
   const lineUserId = ev.source.userId;
-  const memory = lineUserId
-    ? await loadConversationMemory(lineUserId)
-    : { ...EMPTY_CONVERSATION_MEMORY };
+  const userMemoryPk = lineUserId
+    ? buildConversationMemoryPk(lineUserId)
+    : undefined;
+  const sharedMemoryPk = getSharedConversationMemoryPkFromSource(ev.source);
+
+  const [userMemory, sharedMemory] = await Promise.all([
+    lineUserId
+      ? loadConversationMemory(lineUserId)
+      : Promise.resolve<ConversationMemory | undefined>(undefined),
+    sharedMemoryPk
+      ? loadConversationMemoryByPk(sharedMemoryPk)
+      : Promise.resolve<ConversationMemory | undefined>(undefined),
+  ]);
+
+  const context: ConversationMemoryContext = {
+    userMemory,
+    sharedMemory,
+  };
 
   if (isLikelyImageRequest(ev.message.text)) {
     try {
       const imageUrl = await generateImages(
         ev.message.text,
-        memory,
+        context,
         clients.openaiClient
       );
       const replySent = await sendImageReply(
@@ -321,13 +362,25 @@ async function handleTextMessageEvent(
       );
 
       if (replySent) {
-        await updateConversationMemoryForTurn(
-          lineUserId,
-          memory,
-          ev.message.text,
-          describeImageReply(ev.message.text),
-          clients.openaiClient
-        );
+        const imageReplyDescription = describeImageReply(ev.message.text);
+        await Promise.all([
+          updateConversationMemoryForTurn(
+            userMemoryPk,
+            userMemory ?? { ...EMPTY_CONVERSATION_MEMORY },
+            ev.message.text,
+            imageReplyDescription,
+            'user',
+            clients.openaiClient
+          ),
+          updateConversationMemoryForTurn(
+            sharedMemoryPk,
+            sharedMemory ?? { ...EMPTY_CONVERSATION_MEMORY },
+            ev.message.text,
+            imageReplyDescription,
+            'shared',
+            clients.openaiClient
+          ),
+        ]);
       }
       return;
     } catch (_error) {
@@ -341,20 +394,31 @@ async function handleTextMessageEvent(
   }
 
   try {
-    const reply = await askOpenAI(ev.message.text, memory, clients.openaiClient);
+    const reply = await askOpenAI(ev.message.text, context, clients.openaiClient);
     const replySent = await sendTextReply(clients.lineClient, ev.replyToken, reply);
 
     if (!replySent) {
       return;
     }
 
-    await updateConversationMemoryForTurn(
-      lineUserId,
-      memory,
-      ev.message.text,
-      reply,
-      clients.openaiClient
-    );
+    await Promise.all([
+      updateConversationMemoryForTurn(
+        userMemoryPk,
+        userMemory ?? { ...EMPTY_CONVERSATION_MEMORY },
+        ev.message.text,
+        reply,
+        'user',
+        clients.openaiClient
+      ),
+      updateConversationMemoryForTurn(
+        sharedMemoryPk,
+        sharedMemory ?? { ...EMPTY_CONVERSATION_MEMORY },
+        ev.message.text,
+        reply,
+        'shared',
+        clients.openaiClient
+      ),
+    ]);
   } catch (_error) {
     await sendTextReply(
       clients.lineClient,

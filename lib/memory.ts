@@ -87,6 +87,13 @@ export function buildConversationMemoryPk(lineUserId: string): string {
   return `USER#${lineUserId}`;
 }
 
+export function buildSharedConversationMemoryPk(
+  sourceType: 'group' | 'room',
+  sourceId: string
+): string {
+  return `CTX#${sourceType.toUpperCase()}#${sourceId}`;
+}
+
 export function clampConversationMemory(
   memory: Partial<ConversationMemory>
 ): ConversationMemory {
@@ -104,8 +111,8 @@ export function clampConversationMemory(
   };
 }
 
-export async function loadConversationMemory(
-  lineUserId: string
+export async function loadConversationMemoryByPk(
+  pk: string
 ): Promise<ConversationMemory> {
   const tableName = getTableName();
   if (!tableName) {
@@ -118,7 +125,7 @@ export async function loadConversationMemory(
       new GetItemCommand({
         TableName: tableName,
         Key: {
-          pk: { S: buildConversationMemoryPk(lineUserId) },
+          pk: { S: pk },
         },
       })
     );
@@ -129,13 +136,19 @@ export async function loadConversationMemory(
 
     return fromItem(response.Item);
   } catch (error) {
-    console.error('Failed to load conversation memory', { error, lineUserId });
+    console.error('Failed to load conversation memory', { error, pk });
     return { ...EMPTY_CONVERSATION_MEMORY };
   }
 }
 
-export async function saveConversationMemory(
-  lineUserId: string,
+export async function loadConversationMemory(
+  lineUserId: string
+): Promise<ConversationMemory> {
+  return loadConversationMemoryByPk(buildConversationMemoryPk(lineUserId));
+}
+
+export async function saveConversationMemoryByPk(
+  pk: string,
   memory: Partial<ConversationMemory>
 ): Promise<void> {
   const tableName = getTableName();
@@ -149,9 +162,16 @@ export async function saveConversationMemory(
   await dynamoDbClient.send(
     new PutItemCommand({
       TableName: tableName,
-      Item: toItem(clampedMemory, buildConversationMemoryPk(lineUserId)),
+      Item: toItem(clampedMemory, pk),
     })
   );
+}
+
+export async function saveConversationMemory(
+  lineUserId: string,
+  memory: Partial<ConversationMemory>
+): Promise<void> {
+  await saveConversationMemoryByPk(buildConversationMemoryPk(lineUserId), memory);
 }
 
 export { truncateText };

@@ -10,6 +10,13 @@ export interface ConversationMemory {
   updated_at: string;
 }
 
+export interface ConversationMemoryContext {
+  userMemory?: ConversationMemory;
+  sharedMemory?: ConversationMemory;
+}
+
+export type ConversationMemoryKind = 'user' | 'shared';
+
 export const EMPTY_CONVERSATION_MEMORY: ConversationMemory = {
   profile_summary: '',
   recent_summary: '',
