@@ -1,4 +1,5 @@
 import {
+  buildSharedConversationMemoryPk,
   clampConversationMemory,
   truncateText,
 } from '../lib/memory';
@@ -36,4 +37,9 @@ test('clampConversationMemory enforces size limits', () => {
 
 test('truncateText counts Japanese characters correctly', () => {
   expect(truncateText('くま画伯', 3)).toBe('くま画');
+});
+
+test('buildSharedConversationMemoryPk creates stable shared context keys', () => {
+  expect(buildSharedConversationMemoryPk('group', 'abc123')).toBe('CTX#GROUP#abc123');
+  expect(buildSharedConversationMemoryPk('room', 'xyz789')).toBe('CTX#ROOM#xyz789');
 });
