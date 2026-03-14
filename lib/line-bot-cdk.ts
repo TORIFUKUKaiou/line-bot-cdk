@@ -5,6 +5,7 @@ import { Runtime, FunctionUrlAuthType } from 'aws-cdk-lib/aws-lambda'
 import { Duration, CfnOutput } from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
@@ -53,6 +54,14 @@ export class LineBotCdk extends Construct {
       retention: logs.RetentionDays.ONE_DAY,
     });
 
+    const conversationMemoryTable = new dynamodb.Table(this, 'ConversationMemoryTable', {
+      partitionKey: {
+        name: 'pk',
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+    });
+
     // Lambda関数を作成
     const lineBotFunction = new NodejsFunction(this, 'function', {
       runtime: Runtime.NODEJS_22_X,
@@ -61,6 +70,7 @@ export class LineBotCdk extends Construct {
         CHANNEL_ACCESS_TOKEN_PARAM_NAME: process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME || '',
         OPENAI_API_KEY_PARAM_NAME: process.env.OPENAI_API_KEY_PARAM_NAME || '',
         IMAGES_BUCKET_NAME: imagesBucket.bucketName, // バケット名を環境変数に追加
+        CONVERSATION_MEMORY_TABLE_NAME: conversationMemoryTable.tableName,
       },
       logGroup: lineBotLogGroup,
       timeout: Duration.seconds(180), // 60秒から180秒に延長
@@ -94,6 +104,7 @@ export class LineBotCdk extends Construct {
     const lambdaRole = lineBotFunction.role as iam.Role;
     lambdaRole.addToPolicy(ssmRunCmdPolicy);
     lambdaRole.addToPolicy(s3Policy);
+    conversationMemoryTable.grantReadWriteData(lineBotFunction);
 
     // Lambda関数URLを有効化
     const functionUrl = lineBotFunction.addFunctionUrl({
@@ -108,6 +119,10 @@ export class LineBotCdk extends Construct {
     // S3バケットURLを出力
     new CfnOutput(this, 'ImagesBucketUrl', {
       value: `https://${imagesBucket.bucketDomainName}`,
+    });
+
+    new CfnOutput(this, 'ConversationMemoryTableName', {
+      value: conversationMemoryTable.tableName,
     });
 
     // SNSトピックの作成
