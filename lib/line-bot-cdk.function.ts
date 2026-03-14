@@ -1,49 +1,28 @@
 import { Context, APIGatewayProxyResult, APIGatewayEvent } from 'aws-lambda';
-import * as line from '@line/bot-sdk'
-import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-// CloudWatch カスタムメトリクス削除（コスト削減のため）
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import OpenAI from "openai";
+import * as line from '@line/bot-sdk';
+import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import OpenAI from 'openai';
 import { randomUUID } from 'crypto';
-
-const SYSTEM_PROMPT = "あなたは冗談がうまい犬です。名前は「くま」です。趣味は絵を描くことです。つまり「くま」画伯です。個展を何度も開いており、いつも盛況です。そして、もっとも得意なのは冒頭の通り、冗談を言うことです。たったの一言だけで笑いを取れます。最長で400文字まで話せます。犬だからといって安易に「骨」の話はしません。";
-const MODEL_NAME = "gpt-5-nano";
-const CREATE_IMAGE_MODEL = "gpt-image-1.5"
-// gpt-image-1 supports a minimum size of 1024x1024
-const SIZE = "1024x1024"
-
-const IMAGE_DETECT_PROMPT =
-  "ユーザーが画像生成を望んでいるかだけを yes か no で答えてください。";
-
-const IMAGE_PROMPT_PREFIX =
-  "あなたの名前は「くま」という名の犬です。つまり「くま」画伯です。個展を何度も開いており、いつも盛況です。";
-
-async function isImageRequest(
-  text: string,
-  openai: OpenAI
-): Promise<boolean> {
-  try {
-    const response = await openai.responses.create({
-      model: MODEL_NAME,
-      input: [
-        { role: "system", content: IMAGE_DETECT_PROMPT },
-        { role: "user", content: text }
-      ],
-    });
-
-    const answer = response.output_text?.trim();
-    if (!answer) {
-      console.warn("Unexpected OpenAI response", response);
-      return false;
-    }
-    return /^yes$/i.test(answer) || /^はい$/.test(answer);
-  } catch (error) {
-    console.error("isImageRequest error:", { error, prompt: text });
-    logOpenAIError('ChatAPI', error, text);
-    return false;
-  }
-}
+import {
+  clampConversationMemory,
+  loadConversationMemory,
+  saveConversationMemory,
+  truncateText,
+} from './memory';
+import {
+  buildImagePrompt,
+  buildReplyInput,
+  buildSummaryInput,
+  CREATE_IMAGE_MODEL,
+  IMAGE_SIZE,
+  isLikelyImageRequest,
+  MODEL_NAME,
+  OPENAI_FALLBACK_MESSAGE,
+  SUMMARY_MODEL_NAME,
+} from './prompts';
+import { ConversationMemory, EMPTY_CONVERSATION_MEMORY } from './types';
 
 interface Clients {
   lineClient: line.messagingApi.MessagingApiClient;
@@ -51,79 +30,211 @@ interface Clients {
   channelSecret: string;
 }
 
+type TextMessageEvent = line.MessageEvent & { message: line.TextEventMessage };
+
 const ssmClient = new SSMClient({ region: process.env.AWS_REGION });
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
-// CloudWatch クライアント削除（コスト削減のため）
+let cachedClientsPromise: Promise<Clients> | undefined;
 
-// 構造化ログでエラー記録（CloudWatch メトリクスフィルター用）
-function logOpenAIError(errorType: string, error: any, prompt?: string): void {
+function logOpenAIError(errorType: string, error: unknown, prompt?: string): void {
+  const details = error instanceof Error ? error : new Error(String(error));
   console.error('[OPENAI_ERROR]', {
     errorType,
     timestamp: new Date().toISOString(),
-    message: error.message || 'Unknown error',
-    stack: error.stack,
+    message: details.message,
+    stack: details.stack,
     prompt,
   });
 }
 
 async function getParameter(name: string): Promise<string> {
-  try {
-    const command = new GetParameterCommand({
+  const response = await ssmClient.send(
+    new GetParameterCommand({
       Name: name,
-      WithDecryption: true
-    });
-    const response = await ssmClient.send(command);
-    if (!response.Parameter?.Value) {
-      throw new Error(`Parameter ${name} not found`);
-    }
-    return response.Parameter.Value;
-  } catch (error) {
-    console.error(`Error fetching parameter ${name}:`, error);
-    throw error;
+      WithDecryption: true,
+    })
+  );
+
+  if (!response.Parameter?.Value) {
+    throw new Error(`Parameter ${name} not found`);
   }
+
+  return response.Parameter.Value;
 }
 
-async function initialize(): Promise<Clients> {
+async function loadClients(): Promise<Clients> {
   const [channelSecret, channelAccessToken, openAIAPIKey] = await Promise.all([
     getParameter(process.env.CHANNEL_SECRET_PARAM_NAME!),
     getParameter(process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME!),
-    getParameter(process.env.OPENAI_API_KEY_PARAM_NAME!)
+    getParameter(process.env.OPENAI_API_KEY_PARAM_NAME!),
   ]);
 
   return {
     lineClient: new line.messagingApi.MessagingApiClient({
-      channelAccessToken
+      channelAccessToken,
     }),
     openaiClient: new OpenAI({ apiKey: openAIAPIKey }),
-    channelSecret
+    channelSecret,
   };
 }
 
-async function askOpenAI(text: string, openai: OpenAI): Promise<string> {
+async function initialize(): Promise<Clients> {
+  if (!cachedClientsPromise) {
+    cachedClientsPromise = loadClients().catch((error) => {
+      cachedClientsPromise = undefined;
+      throw error;
+    });
+  }
+
+  return cachedClientsPromise;
+}
+
+function getRequestBody(event: APIGatewayEvent): string {
+  if (!event.body) {
+    throw new Error('Bad Request: No body');
+  }
+
+  return event.isBase64Encoded
+    ? Buffer.from(event.body, 'base64').toString('utf8')
+    : event.body;
+}
+
+function getLineSignature(headers: APIGatewayEvent['headers']): string | undefined {
+  return headers['x-line-signature'] ?? headers['X-Line-Signature'];
+}
+
+function extractJsonObject(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) {
+    return fenced[1].trim();
+  }
+
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return text.slice(firstBrace, lastBrace + 1);
+  }
+
+  return text.trim();
+}
+
+function parseConversationMemory(text: string): Partial<ConversationMemory> {
+  const parsed = JSON.parse(extractJsonObject(text)) as Record<string, unknown>;
+  return {
+    profile_summary:
+      typeof parsed.profile_summary === 'string' ? parsed.profile_summary : '',
+    recent_summary:
+      typeof parsed.recent_summary === 'string' ? parsed.recent_summary : '',
+    open_loops: Array.isArray(parsed.open_loops)
+      ? parsed.open_loops.filter((item): item is string => typeof item === 'string')
+      : [],
+  };
+}
+
+function describeImageReply(text: string): string {
+  const topic = truncateText(text.replace(/\s+/g, ' ').trim(), 50);
+  if (!topic) {
+    return 'くま画伯が絵を1枚描いて見せた。';
+  }
+
+  return `くま画伯が「${topic}」の絵を1枚描いて見せた。`;
+}
+
+async function sendTextReply(
+  client: line.messagingApi.MessagingApiClient,
+  replyToken: string,
+  text: string
+): Promise<boolean> {
+  try {
+    await client.replyMessage({
+      replyToken,
+      messages: [{ type: 'text', text }],
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send LINE text reply', { error, replyToken });
+    return false;
+  }
+}
+
+async function sendImageReply(
+  client: line.messagingApi.MessagingApiClient,
+  replyToken: string,
+  imageUrl: string
+): Promise<boolean> {
+  try {
+    await client.replyMessage({
+      replyToken,
+      messages: [
+        {
+          type: 'image',
+          originalContentUrl: imageUrl,
+          previewImageUrl: imageUrl,
+        },
+      ],
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send LINE image reply', { error, replyToken });
+    return false;
+  }
+}
+
+async function askOpenAI(
+  text: string,
+  memory: ConversationMemory,
+  openai: OpenAI
+): Promise<string> {
   try {
     const response = await openai.responses.create({
       model: MODEL_NAME,
-      input: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: text }
-      ],
+      input: buildReplyInput(text, memory),
     });
+
     return response.output_text?.trim() || 'ワンワン！';
   } catch (error) {
-    console.error('OpenAI Chat API error:', { error, prompt: text });
+    console.error('OpenAI Chat API error', { error, prompt: text });
     logOpenAIError('ChatAPI', error, text);
     throw error;
   }
 }
 
-async function generateImages(text: string, openai: OpenAI): Promise<string> {
+async function summarizeConversationMemory(
+  previousMemory: ConversationMemory,
+  userMessage: string,
+  assistantReply: string,
+  openai: OpenAI
+): Promise<ConversationMemory> {
   try {
-    // OpenAIでBase64形式の画像を生成
+    const response = await openai.responses.create({
+      model: SUMMARY_MODEL_NAME,
+      input: buildSummaryInput(previousMemory, userMessage, assistantReply),
+    });
+
+    const output = response.output_text?.trim();
+    if (!output) {
+      throw new Error('Summary response was empty');
+    }
+
+    return clampConversationMemory(parseConversationMemory(output));
+  } catch (error) {
+    console.error('OpenAI summary error', { error, userMessage, assistantReply });
+    logOpenAIError('SummaryAPI', error, userMessage);
+    throw error;
+  }
+}
+
+async function generateImages(
+  text: string,
+  memory: ConversationMemory,
+  openai: OpenAI
+): Promise<string> {
+  try {
     const result = await openai.images.generate({
       model: CREATE_IMAGE_MODEL,
-      prompt: `${IMAGE_PROMPT_PREFIX}${text}`,
-      size: SIZE,
-      quality: "medium",
+      prompt: buildImagePrompt(text, memory),
+      size: IMAGE_SIZE,
+      quality: 'medium',
     });
 
     const imageData = result.data?.[0]?.b64_json;
@@ -131,89 +242,160 @@ async function generateImages(text: string, openai: OpenAI): Promise<string> {
       throw new Error('画像生成に失敗しました');
     }
 
-    // Base64データをバッファに変換
-    const imageBuffer = Buffer.from(imageData, "base64");
-    
-    // S3に保存するためのユニークなファイル名を生成
+    const imageBuffer = Buffer.from(imageData, 'base64');
     const fileName = `${randomUUID()}.png`;
-    
-    // S3にアップロード - ACLパラメータを削除
-    await s3Client.send(new PutObjectCommand({
-      Bucket: process.env.IMAGES_BUCKET_NAME,
-      Key: fileName,
-      Body: imageBuffer,
-      ContentType: 'image/png'
-    }));
-    
-    // 署名付きURLを生成（有効期限7日）
+
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: process.env.IMAGES_BUCKET_NAME,
+        Key: fileName,
+        Body: imageBuffer,
+        ContentType: 'image/png',
+      })
+    );
+
     const command = new GetObjectCommand({
       Bucket: process.env.IMAGES_BUCKET_NAME,
-      Key: fileName
+      Key: fileName,
     });
-    const url = await getSignedUrl(s3Client, command, { expiresIn: 60 * 60 * 24 * 7 });
-    
-    // 署名付きURLを返す
-    return url;
+
+    return getSignedUrl(s3Client, command, {
+      expiresIn: 60 * 60 * 24 * 7,
+    });
   } catch (error) {
-    console.error('画像生成エラー:', { error, prompt: text });
+    console.error('OpenAI image generation error', { error, prompt: text });
     logOpenAIError('ImageAPI', error, text);
     throw error;
   }
 }
 
-export const handler = async (event: APIGatewayEvent, _context: Context): Promise<APIGatewayProxyResult> => {
+async function updateConversationMemoryForTurn(
+  lineUserId: string | undefined,
+  previousMemory: ConversationMemory,
+  userMessage: string,
+  assistantReply: string,
+  openai: OpenAI
+): Promise<void> {
+  if (!lineUserId) {
+    return;
+  }
+
   try {
-    if (!event.body) {
-      throw new Error('Bad Request: No body');
-    }
+    const nextMemory = await summarizeConversationMemory(
+      previousMemory,
+      userMessage,
+      assistantReply,
+      openai
+    );
 
-    const clients = await initialize();
-    
-    if (!line.validateSignature(event.body, clients.channelSecret, event.headers['x-line-signature']!)) {
-      throw new Error('Bad Request: Invalid signature');
-    }
+    await saveConversationMemory(lineUserId, nextMemory);
+  } catch (error) {
+    console.error('Failed to update conversation memory', {
+      error,
+      lineUserId,
+      userMessage,
+    });
+  }
+}
 
-    const body = JSON.parse(event.body);
-    const events: line.WebhookEvent[] = body.events;
+async function handleTextMessageEvent(
+  ev: TextMessageEvent,
+  clients: Clients
+): Promise<void> {
+  const lineUserId = ev.source.userId;
+  const memory = lineUserId
+    ? await loadConversationMemory(lineUserId)
+    : { ...EMPTY_CONVERSATION_MEMORY };
 
-    await Promise.all(events.map(async (ev) => {
-      if (ev.type === 'message' && ev.message.type === 'text') {
-        if (await isImageRequest(ev.message.text, clients.openaiClient)) {
-          try {
-            const url = await generateImages(ev.message.text, clients.openaiClient);
-            await clients.lineClient.replyMessage({
-              replyToken: ev.replyToken,
-              messages: [{ type: 'image', originalContentUrl: url, previewImageUrl: url }]
-            });
-          } catch (error: any) {
-            await clients.lineClient.replyMessage({
-              replyToken: ev.replyToken,
-              messages: [{ type: 'text', text: '画像生成に失敗しました。しばらく時間をおいてお試しください。' }]
-            });
-          }
-        } else {
-          try {
-            const reply = await askOpenAI(ev.message.text, clients.openaiClient);
-            await clients.lineClient.replyMessage({
-              replyToken: ev.replyToken,
-              messages: [{ type: 'text', text: reply }]
-            });
-          } catch (error: any) {
-            await clients.lineClient.replyMessage({
-              replyToken: ev.replyToken,
-              messages: [{ type: 'text', text: '申し訳ありません。一時的にサービスが利用できません。' }]
-            });
-          }
-        }
+  if (isLikelyImageRequest(ev.message.text)) {
+    try {
+      const imageUrl = await generateImages(
+        ev.message.text,
+        memory,
+        clients.openaiClient
+      );
+      const replySent = await sendImageReply(
+        clients.lineClient,
+        ev.replyToken,
+        imageUrl
+      );
+
+      if (replySent) {
+        await updateConversationMemoryForTurn(
+          lineUserId,
+          memory,
+          ev.message.text,
+          describeImageReply(ev.message.text),
+          clients.openaiClient
+        );
       }
-    }));
+      return;
+    } catch (_error) {
+      await sendTextReply(
+        clients.lineClient,
+        ev.replyToken,
+        OPENAI_FALLBACK_MESSAGE
+      );
+      return;
+    }
+  }
+
+  try {
+    const reply = await askOpenAI(ev.message.text, memory, clients.openaiClient);
+    const replySent = await sendTextReply(clients.lineClient, ev.replyToken, reply);
+
+    if (!replySent) {
+      return;
+    }
+
+    await updateConversationMemoryForTurn(
+      lineUserId,
+      memory,
+      ev.message.text,
+      reply,
+      clients.openaiClient
+    );
+  } catch (_error) {
+    await sendTextReply(
+      clients.lineClient,
+      ev.replyToken,
+      OPENAI_FALLBACK_MESSAGE
+    );
+  }
+}
+
+export const handler = async (
+  event: APIGatewayEvent,
+  _context: Context
+): Promise<APIGatewayProxyResult> => {
+  try {
+    const bodyText = getRequestBody(event);
+    const clients = await initialize();
+    const signature = getLineSignature(event.headers);
+
+    if (!signature || !line.validateSignature(bodyText, clients.channelSecret, signature)) {
+      return {
+        statusCode: 401,
+        body: 'Unauthorized',
+      };
+    }
+
+    const body = JSON.parse(bodyText);
+    const events: line.WebhookEvent[] = Array.isArray(body.events) ? body.events : [];
+
+    for (const ev of events) {
+      if (ev.type === 'message' && ev.message.type === 'text') {
+        await handleTextMessageEvent(ev as TextMessageEvent, clients);
+      }
+    }
 
     return { statusCode: 200, body: 'OK' };
-  } catch (error: any) {
-    console.error('Error:', error);
+  } catch (error) {
+    console.error('Error handling LINE webhook', { error });
+    const details = error instanceof Error ? error : new Error(String(error));
     return {
-      statusCode: error.message.includes('Bad Request') ? 400 : 500,
-      body: error.message
+      statusCode: details.message.startsWith('Bad Request') ? 400 : 500,
+      body: details.message,
     };
   }
 };
