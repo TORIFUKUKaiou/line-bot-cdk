@@ -8,7 +8,7 @@ import {
   RECENT_SUMMARY_LIMIT,
 } from './types';
 
-export const MODEL_NAME = 'gpt-5-nano';
+export const MODEL_NAME = 'gpt-5.4-nano';
 export const SUMMARY_MODEL_NAME = MODEL_NAME;
 export const CREATE_IMAGE_MODEL = 'gpt-image-1.5';
 export const IMAGE_SIZE = '1024x1024';
