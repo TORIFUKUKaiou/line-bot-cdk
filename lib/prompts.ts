@@ -85,7 +85,7 @@ export function buildImagePrompt(
     context.userMemory && context.userMemory.open_loops.length > 0 &&
       `このユーザーと続いている話題: ${context.userMemory.open_loops.join(' / ')}`,
     `今回の依頼: ${text}`,
-    '上の文脈を踏まえて、一貫した内容の画像を1枚描いてください。',
+    '上の文脈を踏まえて、ユーザーの依頼を【視覚的な情景】に変換し、一枚の絵として描画してください。文字や吹き出しは極力入れず、アート作品として仕上げてください。',
   ].filter(Boolean);
 
   return sections.join('\n');
