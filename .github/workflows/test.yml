@@ -20,5 +20,6 @@ jobs:
         with:
           node-version: 24
           cache: 'npm'
+      - uses: flatt-security/setup-takumi-guard-npm@v1
       - run: npm ci
       - run: npm test
