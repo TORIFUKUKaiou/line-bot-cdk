@@ -10,7 +10,7 @@ import {
 
 export const MODEL_NAME = 'gpt-5.4-nano';
 export const SUMMARY_MODEL_NAME = MODEL_NAME;
-export const CREATE_IMAGE_MODEL = 'gpt-image-1.5';
+export const CREATE_IMAGE_MODEL = 'gemini-3-pro-image-preview';
 export const IMAGE_SIZE = '1024x1024';
 export const OPENAI_FALLBACK_MESSAGE =
   'ちょっと調子が悪いみたい。また少ししてから話しかけてください。';

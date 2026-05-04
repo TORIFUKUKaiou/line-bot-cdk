@@ -35,6 +35,7 @@ import {
 interface Clients {
   lineClient: line.messagingApi.MessagingApiClient;
   openaiClient: OpenAI;
+  geminiApiKey: string;
   channelSecret: string;
 }
 
@@ -71,10 +72,11 @@ async function getParameter(name: string): Promise<string> {
 }
 
 async function loadClients(): Promise<Clients> {
-  const [channelSecret, channelAccessToken, openAIAPIKey] = await Promise.all([
+  const [channelSecret, channelAccessToken, openAIAPIKey, geminiApiKey] = await Promise.all([
     getParameter(process.env.CHANNEL_SECRET_PARAM_NAME!),
     getParameter(process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME!),
     getParameter(process.env.OPENAI_API_KEY_PARAM_NAME!),
+    getParameter(process.env.GEMINI_API_KEY_PARAM_NAME!),
   ]);
 
   return {
@@ -82,6 +84,7 @@ async function loadClients(): Promise<Clients> {
       channelAccessToken,
     }),
     openaiClient: new OpenAI({ apiKey: openAIAPIKey }),
+    geminiApiKey,
     channelSecret,
   };
 }
@@ -236,30 +239,62 @@ async function summarizeConversationMemory(
 async function generateImages(
   text: string,
   context: ConversationMemoryContext,
-  openai: OpenAI
+  geminiApiKey: string
 ): Promise<string> {
   try {
-    const result = await openai.images.generate({
-      model: CREATE_IMAGE_MODEL,
-      prompt: buildImagePrompt(text, context),
-      size: IMAGE_SIZE,
-      quality: 'medium',
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${CREATE_IMAGE_MODEL}:generateContent`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': geminiApiKey,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: buildImagePrompt(text, context) }],
+          },
+        ],
+        generationConfig: {
+          responseModalities: ['Image'],
+        },
+      }),
     });
 
-    const imageData = result.data?.[0]?.b64_json;
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini image generation failed: ${response.status} ${errorText}`);
+    }
+
+    const result = (await response.json()) as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }>;
+        };
+      }>;
+    };
+
+    const imagePart = result.candidates
+      ?.flatMap((candidate) => candidate.content?.parts ?? [])
+      .find((part) => part.inlineData?.data);
+
+    const imageData = imagePart?.inlineData?.data;
     if (!imageData) {
       throw new Error('画像生成に失敗しました');
     }
 
     const imageBuffer = Buffer.from(imageData, 'base64');
-    const fileName = `${randomUUID()}.png`;
+    const contentType = imagePart?.inlineData?.mimeType ?? 'image/png';
+    const extension = contentType === 'image/jpeg' ? 'jpg' : 'png';
+    const fileName = `${randomUUID()}.${extension}`;
 
     await s3Client.send(
       new PutObjectCommand({
         Bucket: process.env.IMAGES_BUCKET_NAME,
         Key: fileName,
         Body: imageBuffer,
-        ContentType: 'image/png',
+        ContentType: contentType,
       })
     );
 
@@ -272,7 +307,7 @@ async function generateImages(
       expiresIn: 60 * 60 * 24 * 7,
     });
   } catch (error) {
-    console.error('OpenAI image generation error', { error, prompt: text });
+    console.error('Gemini image generation error', { error, prompt: text });
     logOpenAIError('ImageAPI', error, text);
     throw error;
   }
@@ -353,7 +388,7 @@ async function handleTextMessageEvent(
       const imageUrl = await generateImages(
         ev.message.text,
         context,
-        clients.openaiClient
+        clients.geminiApiKey
       );
       const replySent = await sendImageReply(
         clients.lineClient,

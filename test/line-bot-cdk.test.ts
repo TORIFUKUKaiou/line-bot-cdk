@@ -11,6 +11,7 @@ test('Stack has a Lambda function and conversation memory table', () => {
   process.env.CHANNEL_SECRET_PARAM_NAME = 'dummySecretParam';
   process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME = 'dummyAccessTokenParam';
   process.env.OPENAI_API_KEY_PARAM_NAME = 'dummyOpenAIApiKeyParam';
+  process.env.GEMINI_API_KEY_PARAM_NAME = 'dummyGeminiApiKeyParam';
   process.env.EMAIL_ADDRESS = 'test@example.com';
   const stack = new LineBotCdkStack(app, 'TestStack');
   const template = Template.fromStack(stack);

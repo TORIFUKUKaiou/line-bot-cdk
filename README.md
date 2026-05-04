@@ -14,10 +14,10 @@ Lambda Function URL
         |
         v
 AWS Lambda (TypeScript)
-  |- SSM Parameter Store (LINE/OpenAI secrets)
+  |- SSM Parameter Store (LINE/OpenAI/Gemini secrets)
   |- DynamoDB (short conversation memory)
   |- OpenAI Responses API (text reply + memory summary)
-  |- OpenAI Images API
+  |- Gemini Image Generation API
   `- S3 (generated images, 7-day lifecycle)
 
 CloudWatch Logs / Metric Filter / Alarm
@@ -31,7 +31,7 @@ SNS Email Notification
 - LINE webhookをLambda Function URLで受け取る
 - LINE署名を検証する
 - テキスト会話ではOpenAIに問い合わせて、くまの人格で短く返答する
-- 画像依頼では、くま画伯として画像を生成して返す
+- 画像依頼では、Geminiでくま画伯として画像を生成して返す
 - ユーザーごとに短い会話メモをDynamoDBへ保存する
 - Lambda / OpenAIエラーをCloudWatch + SNSで通知する
 
@@ -87,6 +87,7 @@ CDK実行時に以下を設定します。
 export CHANNEL_SECRET_PARAM_NAME="/line-bot/kuma/channelSecret"
 export CHANNEL_ACCESS_TOKEN_PARAM_NAME="/line-bot/kuma/channelAccessToken"
 export OPENAI_API_KEY_PARAM_NAME="/line-bot/kuma/OpenAIAPIKEY"
+export GEMINI_API_KEY_PARAM_NAME="/line-bot/kuma/GeminiAPIKEY"
 export EMAIL_ADDRESS="your-alert@example.com"
 ```
 
@@ -97,6 +98,7 @@ Lambdaには以下が設定されます。
 - `CHANNEL_SECRET_PARAM_NAME`
 - `CHANNEL_ACCESS_TOKEN_PARAM_NAME`
 - `OPENAI_API_KEY_PARAM_NAME`
+- `GEMINI_API_KEY_PARAM_NAME`
 - `IMAGES_BUCKET_NAME`
 - `CONVERSATION_MEMORY_TABLE_NAME`
 
@@ -120,6 +122,12 @@ aws ssm put-parameter \
 aws ssm put-parameter \
   --name "/line-bot/kuma/OpenAIAPIKEY" \
   --value "your-openai-api-key" \
+  --type "SecureString" \
+  --overwrite
+
+aws ssm put-parameter \
+  --name "/line-bot/kuma/GeminiAPIKEY" \
+  --value "your-gemini-api-key" \
   --type "SecureString" \
   --overwrite
 ```
