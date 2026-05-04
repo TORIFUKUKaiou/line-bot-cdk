@@ -242,11 +242,12 @@ async function generateImages(
   geminiApiKey: string
 ): Promise<string> {
   try {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${CREATE_IMAGE_MODEL}:generateContent?key=${geminiApiKey}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${CREATE_IMAGE_MODEL}:generateContent`;
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-goog-api-key': geminiApiKey,
       },
       body: JSON.stringify({
         contents: [
