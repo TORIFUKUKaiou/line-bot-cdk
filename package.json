@@ -11,24 +11,24 @@
     "cdk": "cdk"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.157",
+    "@types/aws-lambda": "^8.10.161",
     "@types/jest": "^30.0.0",
-    "@types/node": "24.9.2",
-    "aws-cdk": "^2.1111.0",
-    "esbuild": "^0.25.11",
-    "jest": "^30.2.0",
-    "ts-jest": "^29.4.5",
+    "@types/node": "^24.9.2",
+    "aws-cdk": "^2.1118.2",
+    "esbuild": "^0.25.12",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.9",
     "ts-node": "^10.9.2",
-    "typescript": "~5.9.3"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.1009.0",
-    "@aws-sdk/client-s3": "^3.919.0",
-    "@aws-sdk/client-ssm": "^3.919.0",
-    "@aws-sdk/s3-request-presigner": "^3.919.0",
-    "@line/bot-sdk": "^10.4.0",
-    "aws-cdk-lib": "^2.243.0",
-    "constructs": "^10.4.2",
-    "openai": "^6.7.0"
+    "@aws-sdk/client-dynamodb": "^3.1032.0",
+    "@aws-sdk/client-s3": "^3.1032.0",
+    "@aws-sdk/client-ssm": "^3.1032.0",
+    "@aws-sdk/s3-request-presigner": "^3.1032.0",
+    "@line/bot-sdk": "^10.8.0",
+    "aws-cdk-lib": "^2.250.0",
+    "constructs": "^10.6.0",
+    "openai": "^6.34.0"
   }
 }
