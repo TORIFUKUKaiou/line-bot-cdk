@@ -20,6 +20,7 @@ export class LineBotCdk extends Construct {
       'CHANNEL_SECRET_PARAM_NAME',
       'CHANNEL_ACCESS_TOKEN_PARAM_NAME', 
       'OPENAI_API_KEY_PARAM_NAME',
+      'GEMINI_API_KEY_PARAM_NAME',
       'EMAIL_ADDRESS'
     ];
 
@@ -69,6 +70,7 @@ export class LineBotCdk extends Construct {
         CHANNEL_SECRET_PARAM_NAME: process.env.CHANNEL_SECRET_PARAM_NAME || '',
         CHANNEL_ACCESS_TOKEN_PARAM_NAME: process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME || '',
         OPENAI_API_KEY_PARAM_NAME: process.env.OPENAI_API_KEY_PARAM_NAME || '',
+        GEMINI_API_KEY_PARAM_NAME: process.env.GEMINI_API_KEY_PARAM_NAME || '',
         IMAGES_BUCKET_NAME: imagesBucket.bucketName, // バケット名を環境変数に追加
         CONVERSATION_MEMORY_TABLE_NAME: conversationMemoryTable.tableName,
       },
@@ -85,6 +87,7 @@ export class LineBotCdk extends Construct {
         `arn:aws:ssm:*:*:parameter${process.env.CHANNEL_SECRET_PARAM_NAME}`,
         `arn:aws:ssm:*:*:parameter${process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME}`,
         `arn:aws:ssm:*:*:parameter${process.env.OPENAI_API_KEY_PARAM_NAME}`,
+        `arn:aws:ssm:*:*:parameter${process.env.GEMINI_API_KEY_PARAM_NAME}`,
       ],
     });
 
