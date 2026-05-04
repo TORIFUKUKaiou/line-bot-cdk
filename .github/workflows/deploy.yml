@@ -47,9 +47,6 @@ jobs:
       - name: Install AWS CDK CLI
         run: npm install -g aws-cdk
 
-      - name: Bootstrap CDK (if first time)
-        run: cdk bootstrap
-
       - name: Build TypeScript code
         run: npm run build
 

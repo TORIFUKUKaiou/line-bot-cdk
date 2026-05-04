@@ -151,6 +151,10 @@ cdk synth
 cdk deploy
 ```
 
+> [!NOTE]
+> GitHub Actions の `deploy` workflow は、デプロイ先AWS環境で `cdk bootstrap` が事前に完了していることを前提にしています。  
+> CI では `cdk bootstrap` を実行しないため、未bootstrap環境へ初回デプロイする場合はローカル等で先に `cdk bootstrap` を実行してください。
+
 デプロイ後、CloudFormation Outputsに少なくとも以下が表示されます。
 
 - `FunctionUrl`
