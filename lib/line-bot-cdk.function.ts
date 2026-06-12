@@ -258,6 +258,9 @@ async function generateImages(
         ],
         generationConfig: {
           responseModalities: ['Image'],
+          imageConfig: {
+            imageSize: IMAGE_SIZE,
+          },
         },
       }),
     });
