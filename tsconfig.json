@@ -23,7 +23,6 @@
     "typeRoots": [
       "./node_modules/@types"
     ],
-    "moduleResolution": "bundler",
     "types": ["node", "jest"]
   },
   "exclude": [
