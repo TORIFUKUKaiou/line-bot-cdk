@@ -39,7 +39,7 @@ interface Clients {
   channelSecret: string;
 }
 
-type TextMessageEvent = line.MessageEvent & { message: line.TextEventMessage };
+type TextMessageEvent = line.webhook.MessageEvent & { message: line.webhook.TextMessageContent };
 
 const ssmClient = new SSMClient({ region: process.env.AWS_REGION });
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
@@ -317,7 +317,7 @@ async function generateImages(
 }
 
 function getSharedConversationMemoryPkFromSource(
-  source: line.EventSource
+  source: line.webhook.Source
 ): string | undefined {
   if (source.type === 'group') {
     return buildSharedConversationMemoryPk('group', source.groupId);
@@ -366,11 +366,18 @@ async function handleTextMessageEvent(
   ev: TextMessageEvent,
   clients: Clients
 ): Promise<void> {
-  const lineUserId = ev.source.userId;
+  if (!ev.replyToken) {
+    console.warn('No replyToken in event', ev);
+    return;
+  }
+
+  const lineUserId = ev.source?.userId;
   const userMemoryPk = lineUserId
     ? buildConversationMemoryPk(lineUserId)
     : undefined;
-  const sharedMemoryPk = getSharedConversationMemoryPkFromSource(ev.source);
+  const sharedMemoryPk = ev.source
+    ? getSharedConversationMemoryPkFromSource(ev.source)
+    : undefined;
 
   const [userMemory, sharedMemory] = await Promise.all([
     lineUserId
@@ -483,7 +490,7 @@ export const handler = async (
     }
 
     const body = JSON.parse(bodyText);
-    const events: line.WebhookEvent[] = Array.isArray(body.events) ? body.events : [];
+    const events: line.webhook.Event[] = Array.isArray(body.events) ? body.events : [];
 
     for (const ev of events) {
       if (ev.type === 'message' && ev.message.type === 'text') {
