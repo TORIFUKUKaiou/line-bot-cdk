@@ -8,7 +8,7 @@ import {
   RECENT_SUMMARY_LIMIT,
 } from './types';
 
-export const MODEL_NAME = 'qwen/qwen3.6-27b';
+export const MODEL_NAME = 'qwen/qwen3.5-9b';
 export const SUMMARY_MODEL_NAME = MODEL_NAME;
 export const CREATE_IMAGE_MODEL = 'gemini-3.1-flash-image';
 export const IMAGE_SIZE = '1K';
