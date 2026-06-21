@@ -62,8 +62,10 @@ export function buildReplyInput(
   context: ConversationMemoryContext
 ): Array<{ role: 'system' | 'user'; content: string }> {
   return [
-    { role: 'system', content: PERSONA_PROMPT },
-    { role: 'system', content: buildMemoryContext(context) },
+    {
+      role: 'system',
+      content: `${PERSONA_PROMPT}\n\n${buildMemoryContext(context)}`,
+    },
     { role: 'user', content: text },
   ];
 }

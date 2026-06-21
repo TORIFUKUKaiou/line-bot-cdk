@@ -27,11 +27,11 @@ test('reply prompt includes shared group context when present', () => {
     userMemory: EMPTY_CONVERSATION_MEMORY,
     sharedMemory: SHARED_MEMORY,
   });
-  const memoryPrompt = input[1]?.content ?? '';
+  const prompt = input[0]?.content ?? '';
 
-  expect(memoryPrompt).toContain('このグループやルーム全体の共有メモ');
-  expect(memoryPrompt).toContain('家族みんなで旅行の話をしていた');
-  expect(memoryPrompt).toContain('次の行き先');
+  expect(prompt).toContain('このグループやルーム全体の共有メモ');
+  expect(prompt).toContain('家族みんなで旅行の話をしていた');
+  expect(prompt).toContain('次の行き先');
 });
 
 test('summary prompt keeps track of when Kuma says he painted something', () => {
