@@ -13,7 +13,7 @@ flowchart TD
 
     Lambda --> SSM[SSM Parameter Store<br/>LINE/OpenAI/Gemini secrets]
     Lambda --> DynamoDB[(DynamoDB<br/>short conversation memory)]
-    Lambda --> OpenAI[OpenAI Responses API<br/>text reply + memory summary]
+    Lambda --> AIAND[AI&amp; Responses API<br/>text reply + memory summary]
     Lambda --> Gemini[Gemini Image Generation API]
     Lambda --> S3[(S3<br/>generated images, 7-day lifecycle)]
 
@@ -80,7 +80,7 @@ CDK実行時に以下を設定します。
 ```bash
 export CHANNEL_SECRET_PARAM_NAME="/line-bot/kuma/channelSecret"
 export CHANNEL_ACCESS_TOKEN_PARAM_NAME="/line-bot/kuma/channelAccessToken"
-export OPENAI_API_KEY_PARAM_NAME="/line-bot/kuma/OpenAIAPIKEY"
+export AIAND_API_KEY_PARAM_NAME="/line-bot/kuma/AIANDAPIKEY"
 export GEMINI_API_KEY_PARAM_NAME="/line-bot/kuma/GeminiAPIKEY"
 export EMAIL_ADDRESS="your-alert@example.com"
 ```
@@ -91,7 +91,7 @@ Lambdaには以下が設定されます。
 
 - `CHANNEL_SECRET_PARAM_NAME`
 - `CHANNEL_ACCESS_TOKEN_PARAM_NAME`
-- `OPENAI_API_KEY_PARAM_NAME`
+- `AIAND_API_KEY_PARAM_NAME`
 - `GEMINI_API_KEY_PARAM_NAME`
 - `IMAGES_BUCKET_NAME`
 - `CONVERSATION_MEMORY_TABLE_NAME`
@@ -114,8 +114,8 @@ aws ssm put-parameter \
   --overwrite
 
 aws ssm put-parameter \
-  --name "/line-bot/kuma/OpenAIAPIKEY" \
-  --value "your-openai-api-key" \
+  --name "/line-bot/kuma/AIANDAPIKEY" \
+  --value "your-aiand-api-key" \
   --type "SecureString" \
   --overwrite
 
@@ -141,8 +141,9 @@ npm install
 cdk bootstrap
 npm run build
 npm test
-cdk synth
-cdk deploy
+# 環境変数をセット
+npx cdk synth
+npx cdk deploy
 ```
 
 > [!NOTE]

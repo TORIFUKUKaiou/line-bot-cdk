@@ -8,7 +8,7 @@ import {
   RECENT_SUMMARY_LIMIT,
 } from './types';
 
-export const MODEL_NAME = 'gpt-5.4-nano';
+export const MODEL_NAME = 'qwen/qwen3.6-27b';
 export const SUMMARY_MODEL_NAME = MODEL_NAME;
 export const CREATE_IMAGE_MODEL = 'gemini-3.1-flash-image';
 export const IMAGE_SIZE = '1K';
@@ -62,8 +62,10 @@ export function buildReplyInput(
   context: ConversationMemoryContext
 ): Array<{ role: 'system' | 'user'; content: string }> {
   return [
-    { role: 'system', content: PERSONA_PROMPT },
-    { role: 'system', content: buildMemoryContext(context) },
+    {
+      role: 'system',
+      content: `${PERSONA_PROMPT}\n\n${buildMemoryContext(context)}`,
+    },
     { role: 'user', content: text },
   ];
 }
