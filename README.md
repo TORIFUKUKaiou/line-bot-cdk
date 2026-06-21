@@ -81,6 +81,7 @@ CDK実行時に以下を設定します。
 export CHANNEL_SECRET_PARAM_NAME="/line-bot/kuma/channelSecret"
 export CHANNEL_ACCESS_TOKEN_PARAM_NAME="/line-bot/kuma/channelAccessToken"
 export OPENAI_API_KEY_PARAM_NAME="/line-bot/kuma/OpenAIAPIKEY"
+export AIAND_API_KEY_PARAM_NAME="/line-bot/kuma/AIANDAPIKEY"
 export GEMINI_API_KEY_PARAM_NAME="/line-bot/kuma/GeminiAPIKEY"
 export EMAIL_ADDRESS="your-alert@example.com"
 ```
@@ -92,6 +93,7 @@ Lambdaには以下が設定されます。
 - `CHANNEL_SECRET_PARAM_NAME`
 - `CHANNEL_ACCESS_TOKEN_PARAM_NAME`
 - `OPENAI_API_KEY_PARAM_NAME`
+- `AIAND_API_KEY_PARAM_NAME`
 - `GEMINI_API_KEY_PARAM_NAME`
 - `IMAGES_BUCKET_NAME`
 - `CONVERSATION_MEMORY_TABLE_NAME`
@@ -110,6 +112,12 @@ aws ssm put-parameter \
 aws ssm put-parameter \
   --name "/line-bot/kuma/channelAccessToken" \
   --value "your-channel-access-token" \
+  --type "SecureString" \
+  --overwrite
+
+aws ssm put-parameter \
+  --name "/line-bot/kuma/AIANDAPIKEY" \
+  --value "your-aiand-api-key" \
   --type "SecureString" \
   --overwrite
 
@@ -141,8 +149,8 @@ npm install
 cdk bootstrap
 npm run build
 npm test
-cdk synth
-cdk deploy
+npx cdk synth
+npx cdk deploy
 ```
 
 > [!NOTE]
