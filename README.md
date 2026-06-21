@@ -6,24 +6,18 @@
 
 ## Architecture
 
-```text
-LINE Messaging API
-        |
-        v
-Lambda Function URL
-        |
-        v
-AWS Lambda (TypeScript)
-  |- SSM Parameter Store (LINE/OpenAI/Gemini secrets)
-  |- DynamoDB (short conversation memory)
-  |- OpenAI Responses API (text reply + memory summary)
-  |- Gemini Image Generation API
-  `- S3 (generated images, 7-day lifecycle)
+```mermaid
+flowchart TD
+    LINE([LINE Messaging API]) --> LFU[Lambda Function URL]
+    LFU --> Lambda[AWS Lambda TypeScript]
 
-CloudWatch Logs / Metric Filter / Alarm
-        |
-        v
-SNS Email Notification
+    Lambda --> SSM[SSM Parameter Store<br/>LINE/OpenAI/Gemini secrets]
+    Lambda --> DynamoDB[(DynamoDB<br/>short conversation memory)]
+    Lambda --> OpenAI[OpenAI Responses API<br/>text reply + memory summary]
+    Lambda --> Gemini[Gemini Image Generation API]
+    Lambda --> S3[(S3<br/>generated images, 7-day lifecycle)]
+
+    CW[CloudWatch Logs / Metric Filter / Alarm] --> SNS[SNS Email Notification]
 ```
 
 ## What It Does
