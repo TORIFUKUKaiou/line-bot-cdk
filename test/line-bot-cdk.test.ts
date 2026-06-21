@@ -10,7 +10,7 @@ test('Stack has Receiver/Worker Lambda functions and conversation memory table',
   // Provide dummy environment variables so the stack can be instantiated
   process.env.CHANNEL_SECRET_PARAM_NAME = 'dummySecretParam';
   process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME = 'dummyAccessTokenParam';
-  process.env.OPENAI_API_KEY_PARAM_NAME = 'dummyOpenAIApiKeyParam';
+  process.env.AIAND_API_KEY_PARAM_NAME = 'dummyAIANDApiKeyParam';
   process.env.GEMINI_API_KEY_PARAM_NAME = 'dummyGeminiApiKeyParam';
   process.env.EMAIL_ADDRESS = 'test@example.com';
   const stack = new LineBotCdkStack(app, 'TestStack');
@@ -55,7 +55,7 @@ test('Stack has Receiver/Worker Lambda functions and conversation memory table',
     Environment: {
       Variables: Match.objectLike({
         CHANNEL_ACCESS_TOKEN_PARAM_NAME: 'dummyAccessTokenParam',
-        OPENAI_API_KEY_PARAM_NAME: 'dummyOpenAIApiKeyParam',
+        AIAND_API_KEY_PARAM_NAME: 'dummyAIANDApiKeyParam',
         GEMINI_API_KEY_PARAM_NAME: 'dummyGeminiApiKeyParam',
         CONVERSATION_MEMORY_TABLE_NAME: Match.anyValue(),
       }),
