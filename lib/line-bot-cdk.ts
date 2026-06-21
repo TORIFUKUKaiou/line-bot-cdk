@@ -10,6 +10,7 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
+import * as path from 'path';
 
 export class LineBotCdk extends Construct {
   constructor(scope: Construct, id: string) {
@@ -51,7 +52,11 @@ export class LineBotCdk extends Construct {
     });
 
     // Lambda関数用のロググループを作成
-    const lineBotLogGroup = new logs.LogGroup(this, 'LineBotFunctionLogGroup', {
+    const receiverLogGroup = new logs.LogGroup(this, 'ReceiverFunctionLogGroup', {
+      retention: logs.RetentionDays.ONE_DAY,
+    });
+
+    const workerLogGroup = new logs.LogGroup(this, 'WorkerFunctionLogGroup', {
       retention: logs.RetentionDays.ONE_DAY,
     });
 
@@ -63,39 +68,65 @@ export class LineBotCdk extends Construct {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
     });
 
-    // Lambda関数を作成
-    const lineBotFunction = new NodejsFunction(this, 'function', {
+    // Worker Lambda関数を作成
+    const workerFunction = new NodejsFunction(this, 'WorkerFunction', {
       runtime: Runtime.NODEJS_24_X,
+      entry: path.join(__dirname, 'line-bot-worker.ts'),
       environment: {
-        CHANNEL_SECRET_PARAM_NAME: process.env.CHANNEL_SECRET_PARAM_NAME || '',
         CHANNEL_ACCESS_TOKEN_PARAM_NAME: process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME || '',
         OPENAI_API_KEY_PARAM_NAME: process.env.OPENAI_API_KEY_PARAM_NAME || '',
         GEMINI_API_KEY_PARAM_NAME: process.env.GEMINI_API_KEY_PARAM_NAME || '',
-        IMAGES_BUCKET_NAME: imagesBucket.bucketName, // バケット名を環境変数に追加
+        IMAGES_BUCKET_NAME: imagesBucket.bucketName,
         CONVERSATION_MEMORY_TABLE_NAME: conversationMemoryTable.tableName,
       },
-      logGroup: lineBotLogGroup,
-      timeout: Duration.seconds(180), // 60秒から180秒に延長
-      memorySize: 256, // メモリを256MBに設定
+      logGroup: workerLogGroup,
+      timeout: Duration.seconds(180),
+      memorySize: 256,
     });
 
-    // SSMへのアクセス権限を付与
-    const ssmRunCmdPolicy = new iam.PolicyStatement({
+    // Receiver Lambda関数を作成
+    const receiverFunction = new NodejsFunction(this, 'ReceiverFunction', {
+      runtime: Runtime.NODEJS_24_X,
+      entry: path.join(__dirname, 'line-bot-receiver.ts'),
+      environment: {
+        CHANNEL_SECRET_PARAM_NAME: process.env.CHANNEL_SECRET_PARAM_NAME || '',
+        WORKER_FUNCTION_NAME: workerFunction.functionName,
+      },
+      logGroup: receiverLogGroup,
+      timeout: Duration.seconds(5),
+      memorySize: 256,
+    });
+
+    // Receiver -> Worker の非同期呼び出し権限を付与
+    workerFunction.grantInvoke(receiverFunction);
+
+    // SSMへのアクセス権限を付与 (Receiver用: CHANNEL_SECRET のみ)
+    const receiverSsmPolicy = new iam.PolicyStatement({
       actions: ['ssm:GetParameter'],
       effect: iam.Effect.ALLOW,
       resources: [
         `arn:aws:ssm:*:*:parameter${process.env.CHANNEL_SECRET_PARAM_NAME}`,
+      ],
+    });
+    const receiverRole = receiverFunction.role as iam.Role;
+    receiverRole.addToPolicy(receiverSsmPolicy);
+
+    // SSMへのアクセス権限を付与 (Worker用)
+    const workerSsmPolicy = new iam.PolicyStatement({
+      actions: ['ssm:GetParameter'],
+      effect: iam.Effect.ALLOW,
+      resources: [
         `arn:aws:ssm:*:*:parameter${process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME}`,
         `arn:aws:ssm:*:*:parameter${process.env.OPENAI_API_KEY_PARAM_NAME}`,
         `arn:aws:ssm:*:*:parameter${process.env.GEMINI_API_KEY_PARAM_NAME}`,
       ],
     });
 
-    // S3バケットへの権限を付与
+    // S3バケットへの権限を付与 (Workerのみ)
     const s3Policy = new iam.PolicyStatement({
       actions: [
         's3:PutObject',
-        's3:GetObject',  // 署名付きURL生成のため必要
+        's3:GetObject',
       ],
       effect: iam.Effect.ALLOW,
       resources: [
@@ -103,15 +134,15 @@ export class LineBotCdk extends Construct {
       ],
     });
 
-    // Lambda関数にSSMへのアクセス権限を付与
-    const lambdaRole = lineBotFunction.role as iam.Role;
-    lambdaRole.addToPolicy(ssmRunCmdPolicy);
-    lambdaRole.addToPolicy(s3Policy);
-    conversationMemoryTable.grantReadWriteData(lineBotFunction);
+    // Workerに権限を付与
+    const workerRole = workerFunction.role as iam.Role;
+    workerRole.addToPolicy(workerSsmPolicy);
+    workerRole.addToPolicy(s3Policy);
+    conversationMemoryTable.grantReadWriteData(workerFunction);
 
-    // Lambda関数URLを有効化
-    const functionUrl = lineBotFunction.addFunctionUrl({
-      authType: FunctionUrlAuthType.NONE, // 認証なしでアクセス可能
+    // Lambda関数URLを有効化 (Receiverのみ)
+    const functionUrl = receiverFunction.addFunctionUrl({
+      authType: FunctionUrlAuthType.NONE,
     });
 
     // Lambda関数URLを出力
@@ -140,7 +171,7 @@ export class LineBotCdk extends Construct {
 
     // CloudWatchアラームの作成
     const lambdaErrorAlarm = new cloudwatch.Alarm(this, 'LambdaErrorAlarm', {
-      metric: lineBotFunction.metricErrors(), // Lambda関数のエラーメトリクス
+      metric: workerFunction.metricErrors(), // Lambda関数のエラーメトリクス
       threshold: 1, // エラーが1回以上発生した場合にアラームを発動
       evaluationPeriods: 1, // 1つの評価期間でアラームを発動
       alarmDescription: 'Alarm for Lambda function errors',
@@ -150,7 +181,7 @@ export class LineBotCdk extends Construct {
 
     // OpenAI APIエラー用メトリクスフィルター（コスト0）
     const openaiErrorMetricFilter = new logs.MetricFilter(this, 'OpenAIErrorMetricFilter', {
-      logGroup: lineBotFunction.logGroup,
+      logGroup: workerFunction.logGroup,
       metricNamespace: 'LineBot/OpenAI',
       metricName: 'OpenAIErrors',
       filterPattern: logs.FilterPattern.literal('"[OPENAI_ERROR]"'),

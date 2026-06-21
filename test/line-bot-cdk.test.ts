@@ -2,10 +2,10 @@ import * as cdk from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { LineBotCdkStack } from '../lib/line-bot-cdk-stack';
 
-// Test that the stack defines at least one Lambda function
-// This ensures the LineBot construct is synthesized correctly
+// Test that the stack defines the Lambda functions and DynamoDB table
+// This ensures the LineBot construct is synthesized correctly with Receiver/Worker architecture
 
-test('Stack has a Lambda function and conversation memory table', () => {
+test('Stack has Receiver/Worker Lambda functions and conversation memory table', () => {
   const app = new cdk.App();
   // Provide dummy environment variables so the stack can be instantiated
   process.env.CHANNEL_SECRET_PARAM_NAME = 'dummySecretParam';
@@ -17,7 +17,7 @@ test('Stack has a Lambda function and conversation memory table', () => {
   const template = Template.fromStack(stack);
   const functions = template.findResources('AWS::Lambda::Function');
   const tables = template.findResources('AWS::DynamoDB::Table');
-  expect(Object.keys(functions).length).toBeGreaterThan(0);
+  expect(Object.keys(functions).length).toBe(2); // Receiver と Worker の2つ
   expect(Object.keys(tables).length).toBe(1);
 
   template.hasResourceProperties('AWS::DynamoDB::Table', {
@@ -36,9 +36,27 @@ test('Stack has a Lambda function and conversation memory table', () => {
     ],
   });
 
+  // Receiver Lambda の検証
   template.hasResourceProperties('AWS::Lambda::Function', {
+    Handler: 'index.handler',
+    Timeout: 5,
     Environment: {
       Variables: Match.objectLike({
+        CHANNEL_SECRET_PARAM_NAME: 'dummySecretParam',
+        WORKER_FUNCTION_NAME: Match.anyValue(),
+      }),
+    },
+  });
+
+  // Worker Lambda の検証
+  template.hasResourceProperties('AWS::Lambda::Function', {
+    Handler: 'index.handler',
+    Timeout: 180,
+    Environment: {
+      Variables: Match.objectLike({
+        CHANNEL_ACCESS_TOKEN_PARAM_NAME: 'dummyAccessTokenParam',
+        OPENAI_API_KEY_PARAM_NAME: 'dummyOpenAIApiKeyParam',
+        GEMINI_API_KEY_PARAM_NAME: 'dummyGeminiApiKeyParam',
         CONVERSATION_MEMORY_TABLE_NAME: Match.anyValue(),
       }),
     },

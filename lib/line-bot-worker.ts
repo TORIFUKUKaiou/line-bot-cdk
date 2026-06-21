@@ -1,4 +1,4 @@
-import { Context, APIGatewayProxyResult, APIGatewayEvent } from 'aws-lambda';
+import { Context } from 'aws-lambda';
 import * as line from '@line/bot-sdk';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
@@ -36,7 +36,6 @@ interface Clients {
   lineClient: line.messagingApi.MessagingApiClient;
   openaiClient: OpenAI;
   geminiApiKey: string;
-  channelSecret: string;
 }
 
 type TextMessageEvent = line.webhook.MessageEvent & { message: line.webhook.TextMessageContent };
@@ -72,8 +71,7 @@ async function getParameter(name: string): Promise<string> {
 }
 
 async function loadClients(): Promise<Clients> {
-  const [channelSecret, channelAccessToken, openAIAPIKey, geminiApiKey] = await Promise.all([
-    getParameter(process.env.CHANNEL_SECRET_PARAM_NAME!),
+  const [channelAccessToken, openAIAPIKey, geminiApiKey] = await Promise.all([
     getParameter(process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME!),
     getParameter(process.env.OPENAI_API_KEY_PARAM_NAME!),
     getParameter(process.env.GEMINI_API_KEY_PARAM_NAME!),
@@ -85,7 +83,6 @@ async function loadClients(): Promise<Clients> {
     }),
     openaiClient: new OpenAI({ apiKey: openAIAPIKey }),
     geminiApiKey,
-    channelSecret,
   };
 }
 
@@ -98,20 +95,6 @@ async function initialize(): Promise<Clients> {
   }
 
   return cachedClientsPromise;
-}
-
-function getRequestBody(event: APIGatewayEvent): string {
-  if (!event.body) {
-    throw new Error('Bad Request: No body');
-  }
-
-  return event.isBase64Encoded
-    ? Buffer.from(event.body, 'base64').toString('utf8')
-    : event.body;
-}
-
-function getLineSignature(headers: APIGatewayEvent['headers']): string | undefined {
-  return headers['x-line-signature'] ?? headers['X-Line-Signature'];
 }
 
 function extractJsonObject(text: string): string {
@@ -473,23 +456,17 @@ async function handleTextMessageEvent(
   }
 }
 
+interface WorkerEvent {
+  body: string;
+}
+
 export const handler = async (
-  event: APIGatewayEvent,
+  event: WorkerEvent,
   _context: Context
-): Promise<APIGatewayProxyResult> => {
+): Promise<void> => {
   try {
-    const bodyText = getRequestBody(event);
     const clients = await initialize();
-    const signature = getLineSignature(event.headers);
-
-    if (!signature || !line.validateSignature(bodyText, clients.channelSecret, signature)) {
-      return {
-        statusCode: 401,
-        body: 'Unauthorized',
-      };
-    }
-
-    const body = JSON.parse(bodyText);
+    const body = JSON.parse(event.body);
     const events: line.webhook.Event[] = Array.isArray(body.events) ? body.events : [];
 
     for (const ev of events) {
@@ -497,14 +474,7 @@ export const handler = async (
         await handleTextMessageEvent(ev as TextMessageEvent, clients);
       }
     }
-
-    return { statusCode: 200, body: 'OK' };
   } catch (error) {
-    console.error('Error handling LINE webhook', { error });
-    const details = error instanceof Error ? error : new Error(String(error));
-    return {
-      statusCode: details.message.startsWith('Bad Request') ? 400 : 500,
-      body: details.message,
-    };
+    console.error('Error handling LINE event in worker', { error });
   }
 };
