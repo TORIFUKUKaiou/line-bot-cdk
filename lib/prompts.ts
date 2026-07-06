@@ -10,7 +10,7 @@ import {
 
 export const MODEL_NAME = 'qwen/qwen3.6-27b';
 export const SUMMARY_MODEL_NAME = MODEL_NAME;
-export const CREATE_IMAGE_MODEL = 'gemini-3.1-flash-image';
+export const CREATE_IMAGE_MODEL = 'gemini-3.1-flash-lite-image';
 export const IMAGE_SIZE = '1K';
 export const OPENAI_FALLBACK_MESSAGE =
   'ちょっと調子が悪いみたい。また少ししてから話しかけてください。';
