@@ -13,6 +13,9 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && !contains(github.event.head_commit.message, 'dependabot'))
 
     env:
       CHANNEL_SECRET_PARAM_NAME: ${{ vars.CHANNEL_SECRET_PARAM_NAME }}
