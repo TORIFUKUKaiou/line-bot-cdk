@@ -20,7 +20,7 @@ export class LineBotCdk extends Construct {
     const requiredEnvVars = [
       'CHANNEL_SECRET_PARAM_NAME',
       'CHANNEL_ACCESS_TOKEN_PARAM_NAME', 
-      'AIAND_API_KEY_PARAM_NAME',
+      'SAKURA_AI_TOKEN_PARAM_NAME',
       'GEMINI_API_KEY_PARAM_NAME',
       'EMAIL_ADDRESS'
     ];
@@ -74,7 +74,7 @@ export class LineBotCdk extends Construct {
       entry: path.join(__dirname, 'line-bot-worker.ts'),
       environment: {
         CHANNEL_ACCESS_TOKEN_PARAM_NAME: process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME || '',
-        AIAND_API_KEY_PARAM_NAME: process.env.AIAND_API_KEY_PARAM_NAME || '',
+        SAKURA_AI_TOKEN_PARAM_NAME: process.env.SAKURA_AI_TOKEN_PARAM_NAME || '',
         GEMINI_API_KEY_PARAM_NAME: process.env.GEMINI_API_KEY_PARAM_NAME || '',
         IMAGES_BUCKET_NAME: imagesBucket.bucketName,
         CONVERSATION_MEMORY_TABLE_NAME: conversationMemoryTable.tableName,
@@ -117,7 +117,7 @@ export class LineBotCdk extends Construct {
       effect: iam.Effect.ALLOW,
       resources: [
         `arn:aws:ssm:*:*:parameter${process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME}`,
-        `arn:aws:ssm:*:*:parameter${process.env.AIAND_API_KEY_PARAM_NAME}`,
+        `arn:aws:ssm:*:*:parameter${process.env.SAKURA_AI_TOKEN_PARAM_NAME}`,
         `arn:aws:ssm:*:*:parameter${process.env.GEMINI_API_KEY_PARAM_NAME}`,
       ],
     });
@@ -179,28 +179,28 @@ export class LineBotCdk extends Construct {
 
     lambdaErrorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(errorNotificationTopic));
 
-    // OpenAI APIエラー用メトリクスフィルター（コスト0）
-    const openaiErrorMetricFilter = new logs.MetricFilter(this, 'OpenAIErrorMetricFilter', {
+    // AI APIエラー用メトリクスフィルター（既存のメトリクス名・IDを維持）
+    const aiErrorMetricFilter = new logs.MetricFilter(this, 'OpenAIErrorMetricFilter', {
       logGroup: workerFunction.logGroup,
       metricNamespace: 'LineBot/OpenAI',
       metricName: 'OpenAIErrors',
-      filterPattern: logs.FilterPattern.literal('"[OPENAI_ERROR]"'),
+      filterPattern: logs.FilterPattern.literal('"[AI_ERROR]"'),
       metricValue: '1',
       defaultValue: 0
     });
 
-    // OpenAI APIエラーアラーム（メトリクスフィルター使用）
-    const openaiErrorAlarm = new cloudwatch.Alarm(this, 'OpenAIErrorAlarm', {
-      metric: openaiErrorMetricFilter.metric({
+    // AI APIエラーアラーム（既存のアラームIDを維持）
+    const aiErrorAlarm = new cloudwatch.Alarm(this, 'OpenAIErrorAlarm', {
+      metric: aiErrorMetricFilter.metric({
         statistic: 'Sum',
         period: Duration.minutes(5)
       }),
       threshold: 1,
       evaluationPeriods: 1,
-      alarmDescription: 'Alarm for OpenAI API errors (Chat & Image)',
+      alarmDescription: 'Alarm for AI API errors (Sakura AI & Gemini)',
     });
 
-    openaiErrorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(errorNotificationTopic));
+    aiErrorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(errorNotificationTopic));
 
     // SNSトピックARNを出力
     new CfnOutput(this, 'ErrorNotificationTopicArn', {

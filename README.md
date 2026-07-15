@@ -11,9 +11,9 @@ flowchart TD
     LINE([LINE Messaging API]) --> LFU[Lambda Function URL]
     LFU --> Lambda[AWS Lambda TypeScript]
 
-    Lambda --> SSM[SSM Parameter Store<br/>LINE/OpenAI/Gemini secrets]
+    Lambda --> SSM[SSM Parameter Store<br/>LINE/Sakura AI/Gemini secrets]
     Lambda --> DynamoDB[(DynamoDB<br/>short conversation memory)]
-    Lambda --> AIAND[AI&amp; Responses API<br/>text reply + memory summary]
+    Lambda --> SakuraAI[さくらのAI Engine<br/>Responses API<br/>text reply + memory summary]
     Lambda --> Gemini[Gemini Image Generation API]
     Lambda --> S3[(S3<br/>generated images, 7-day lifecycle)]
 
@@ -24,10 +24,10 @@ flowchart TD
 
 - LINE webhookをLambda Function URLで受け取る
 - LINE署名を検証する
-- テキスト会話ではOpenAIに問い合わせて、くまの人格で短く返答する
+- テキスト会話ではさくらのAI Engineに問い合わせて、くまの人格で短く返答する
 - 画像依頼では、Geminiでくま画伯として画像を生成して返す
 - ユーザーごとに短い会話メモをDynamoDBへ保存する
-- Lambda / OpenAIエラーをCloudWatch + SNSで通知する
+- Lambda / AIエラーをCloudWatch + SNSで通知する
 
 ## Memory Design
 
@@ -80,7 +80,7 @@ CDK実行時に以下を設定します。
 ```bash
 export CHANNEL_SECRET_PARAM_NAME="/line-bot/kuma/channelSecret"
 export CHANNEL_ACCESS_TOKEN_PARAM_NAME="/line-bot/kuma/channelAccessToken"
-export AIAND_API_KEY_PARAM_NAME="/line-bot/kuma/AIANDAPIKEY"
+export SAKURA_AI_TOKEN_PARAM_NAME="/line-bot/kuma/SakuraAIToken"
 export GEMINI_API_KEY_PARAM_NAME="/line-bot/kuma/GeminiAPIKEY"
 export EMAIL_ADDRESS="your-alert@example.com"
 ```
@@ -91,12 +91,21 @@ Lambdaには以下が設定されます。
 
 - `CHANNEL_SECRET_PARAM_NAME`
 - `CHANNEL_ACCESS_TOKEN_PARAM_NAME`
-- `AIAND_API_KEY_PARAM_NAME`
+- `SAKURA_AI_TOKEN_PARAM_NAME`
 - `GEMINI_API_KEY_PARAM_NAME`
 - `IMAGES_BUCKET_NAME`
 - `CONVERSATION_MEMORY_TABLE_NAME`
 
 このうち秘密値そのものはLambda環境変数へ入れず、SSM Parameter Storeから実行時に取得します。
+
+## Sakura AI Engine
+
+テキスト応答と会話メモ要約には、さくらのAI EngineのOpenAI互換Responses APIを使用します。
+
+- Endpoint: `https://api.ai.sakura.ad.jp/v1`
+- API: `POST /v1/responses`
+- Model: `preview/gemma-4-31B-it`
+- Authentication: SSM Parameter Storeに保存したアカウントトークンをBearerトークンとして使用
 
 ## Secrets in SSM Parameter Store
 
@@ -114,8 +123,8 @@ aws ssm put-parameter \
   --overwrite
 
 aws ssm put-parameter \
-  --name "/line-bot/kuma/AIANDAPIKEY" \
-  --value "your-aiand-api-key" \
+  --name "/line-bot/kuma/SakuraAIToken" \
+  --value "<UUID>:<secret>" \
   --type "SecureString" \
   --overwrite
 
@@ -187,7 +196,7 @@ npm test
 - DynamoDBは1テーブルのみ、オンデマンド課金
 - 会話履歴は全文保存せず、短い要約だけ保持
 - 画像はS3へ保存し、7日後に自動削除
-- 画像依頼の判定はルールベースで行い、不要なOpenAI呼び出しを減らす
+- 画像依頼の判定はルールベースで行い、不要なSakura AI呼び出しを減らす
 - SSMで取得したクライアント設定はLambda実行環境内で再利用する
 
 ## Future Improvements
