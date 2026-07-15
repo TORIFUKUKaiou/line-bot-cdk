@@ -8,11 +8,11 @@ import {
   RECENT_SUMMARY_LIMIT,
 } from './types';
 
-export const MODEL_NAME = 'qwen/qwen3.6-27b';
+export const MODEL_NAME = 'preview/gemma-4-31B-it';
 export const SUMMARY_MODEL_NAME = MODEL_NAME;
 export const CREATE_IMAGE_MODEL = 'gemini-3.1-flash-lite-image';
 export const IMAGE_SIZE = '1K';
-export const OPENAI_FALLBACK_MESSAGE =
+export const AI_FALLBACK_MESSAGE =
   'ちょっと調子が悪いみたい。また少ししてから話しかけてください。';
 
 const PERSONA_PROMPT =

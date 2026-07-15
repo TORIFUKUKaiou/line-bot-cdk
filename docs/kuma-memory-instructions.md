@@ -30,8 +30,8 @@ The current project already has:
 - LINE Messaging API webhook handling in AWS Lambda
 - Lambda Function URL as the public webhook endpoint
 - AWS CDK in TypeScript
-- OpenAI text response generation
-- OpenAI image generation
+- Sakura AI text response generation
+- Gemini image generation
 - S3 for storing generated images and returning pre-signed URLs
 - SSM Parameter Store for secret retrieval at runtime
 - CloudWatch Logs, metric filters, alarms, and SNS email notifications
@@ -79,8 +79,8 @@ Lambda Function URL
 ↓
 AWS Lambda (Node.js / TypeScript)
 ├─ DynamoDB (short conversation memory)
-├─ OpenAI API (reply generation and summary update)
-└─ OpenAI Images API -> S3 -> pre-signed URL (existing image flow)
+├─ Sakura AI Responses API (reply generation and summary update)
+└─ Gemini Image Generation API -> S3 -> pre-signed URL (existing image flow)
 
 Supporting services already in use:
 
@@ -121,7 +121,7 @@ Guidelines:
 - Keep each item very small
 - Keep prompts short
 - Reuse the existing small text model for summarization unless there is a strong reason not to
-- Do not add extra OpenAI calls beyond what is necessary
+- Do not add extra Sakura AI calls beyond what is necessary
 
 If the current image-request detection logic can be simplified without harming behavior, prefer a simple deterministic check over an additional model call.
 The new memory feature should not trigger a large cost increase.
@@ -209,7 +209,7 @@ Do not store:
 
 8. If DynamoDB read fails, log the error and continue with empty memory.
 
-9. Generate the assistant response using OpenAI with:
+9. Generate the assistant response using Sakura AI's Responses API with:
 
 - the existing Kuma persona
 - profile summary
@@ -228,7 +228,7 @@ If the message is an image-generation request:
 
 11. Send the reply to LINE first.
 
-12. After a successful reply attempt, update memory using a short OpenAI summarization step.
+12. After a successful reply attempt, update memory using a short Sakura AI summarization step.
 
 Provide to the summarization step:
 
@@ -338,8 +338,15 @@ Keep the current environment variables:
 
 - `CHANNEL_SECRET_PARAM_NAME`
 - `CHANNEL_ACCESS_TOKEN_PARAM_NAME`
-- `OPENAI_API_KEY_PARAM_NAME`
+- `SAKURA_AI_TOKEN_PARAM_NAME`
 - `IMAGES_BUCKET_NAME`
+
+Sakura AI Engine configuration:
+
+- Base URL: `https://api.ai.sakura.ad.jp/v1`
+- API: `POST /v1/responses`
+- Model: `preview/gemma-4-31B-it`
+- The SSM value is the Sakura account token in `<UUID>:<secret>` format.
 
 Add only the minimum new non-secret variable needed for memory:
 
@@ -354,7 +361,7 @@ Invalid LINE signature:
 
 - return HTTP 401
 
-OpenAI reply failure:
+Sakura AI reply failure:
 
 - return a short Japanese fallback reply
 - keep the fallback simple

@@ -5,6 +5,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import OpenAI from 'openai';
 import { randomUUID } from 'crypto';
+import { createSakuraAiClient } from './sakura-ai';
 import {
   clampConversationMemory,
   buildConversationMemoryPk,
@@ -22,7 +23,7 @@ import {
   IMAGE_SIZE,
   isLikelyImageRequest,
   MODEL_NAME,
-  OPENAI_FALLBACK_MESSAGE,
+  AI_FALLBACK_MESSAGE,
   SUMMARY_MODEL_NAME,
 } from './prompts';
 import {
@@ -34,7 +35,7 @@ import {
 
 interface Clients {
   lineClient: line.messagingApi.MessagingApiClient;
-  openaiClient: OpenAI;
+  sakuraAiClient: OpenAI;
   geminiApiKey: string;
 }
 
@@ -44,9 +45,9 @@ const ssmClient = new SSMClient({ region: process.env.AWS_REGION });
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
 let cachedClientsPromise: Promise<Clients> | undefined;
 
-function logOpenAIError(errorType: string, error: unknown, prompt?: string): void {
+function logAIError(errorType: string, error: unknown, prompt?: string): void {
   const details = error instanceof Error ? error : new Error(String(error));
-  console.error('[OPENAI_ERROR]', {
+  console.error('[AI_ERROR]', {
     errorType,
     timestamp: new Date().toISOString(),
     message: details.message,
@@ -71,9 +72,9 @@ async function getParameter(name: string): Promise<string> {
 }
 
 async function loadClients(): Promise<Clients> {
-  const [channelAccessToken, aiANDAPIKey, geminiApiKey] = await Promise.all([
+  const [channelAccessToken, sakuraAiToken, geminiApiKey] = await Promise.all([
     getParameter(process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME!),
-    getParameter(process.env.AIAND_API_KEY_PARAM_NAME!),
+    getParameter(process.env.SAKURA_AI_TOKEN_PARAM_NAME!),
     getParameter(process.env.GEMINI_API_KEY_PARAM_NAME!),
   ]);
 
@@ -81,7 +82,7 @@ async function loadClients(): Promise<Clients> {
     lineClient: new line.messagingApi.MessagingApiClient({
       channelAccessToken,
     }),
-    openaiClient: new OpenAI({ baseURL: "https://api.aiand.com/v1", apiKey: aiANDAPIKey }),
+    sakuraAiClient: createSakuraAiClient(sakuraAiToken),
     geminiApiKey,
   };
 }
@@ -174,34 +175,34 @@ async function sendImageReply(
   }
 }
 
-async function askOpenAI(
+export async function askSakuraAI(
   text: string,
   context: ConversationMemoryContext,
-  openai: OpenAI
+  sakuraAi: OpenAI
 ): Promise<string> {
   try {
-    const response = await openai.responses.create({
+    const response = await sakuraAi.responses.create({
       model: MODEL_NAME,
       input: buildReplyInput(text, context),
     });
 
     return response.output_text?.trim() || 'ワンワン！';
   } catch (error) {
-    console.error('OpenAI Chat API error', { error, prompt: text });
-    logOpenAIError('ChatAPI', error, text);
+    console.error('Sakura AI Responses API error', { error, prompt: text });
+    logAIError('ChatAPI', error, text);
     throw error;
   }
 }
 
-async function summarizeConversationMemory(
+export async function summarizeConversationMemory(
   previousMemory: ConversationMemory,
   userMessage: string,
   assistantReply: string,
   kind: ConversationMemoryKind,
-  openai: OpenAI
+  sakuraAi: OpenAI
 ): Promise<ConversationMemory> {
   try {
-    const response = await openai.responses.create({
+    const response = await sakuraAi.responses.create({
       model: SUMMARY_MODEL_NAME,
       input: buildSummaryInput(previousMemory, userMessage, assistantReply, kind),
     });
@@ -213,8 +214,8 @@ async function summarizeConversationMemory(
 
     return clampConversationMemory(parseConversationMemory(output));
   } catch (error) {
-    console.error('OpenAI summary error', { error, userMessage, assistantReply });
-    logOpenAIError('SummaryAPI', error, userMessage);
+    console.error('Sakura AI summary error', { error, userMessage, assistantReply });
+    logAIError('SummaryAPI', error, userMessage);
     throw error;
   }
 }
@@ -294,7 +295,7 @@ async function generateImages(
     });
   } catch (error) {
     console.error('Gemini image generation error', { error, prompt: text });
-    logOpenAIError('ImageAPI', error, text);
+    logAIError('ImageAPI', error, text);
     throw error;
   }
 }
@@ -319,7 +320,7 @@ async function updateConversationMemoryForTurn(
   userMessage: string,
   assistantReply: string,
   kind: ConversationMemoryKind,
-  openai: OpenAI
+  sakuraAi: OpenAI
 ): Promise<void> {
   if (!pk) {
     return;
@@ -331,7 +332,7 @@ async function updateConversationMemoryForTurn(
       userMessage,
       assistantReply,
       kind,
-      openai
+      sakuraAi
     );
 
     await saveConversationMemoryByPk(pk, nextMemory);
@@ -398,7 +399,7 @@ async function handleTextMessageEvent(
             ev.message.text,
             imageReplyDescription,
             'user',
-            clients.openaiClient
+            clients.sakuraAiClient
           ),
           updateConversationMemoryForTurn(
             sharedMemoryPk,
@@ -406,7 +407,7 @@ async function handleTextMessageEvent(
             ev.message.text,
             imageReplyDescription,
             'shared',
-            clients.openaiClient
+            clients.sakuraAiClient
           ),
         ]);
       }
@@ -415,14 +416,14 @@ async function handleTextMessageEvent(
       await sendTextReply(
         clients.lineClient,
         ev.replyToken,
-        OPENAI_FALLBACK_MESSAGE
+        AI_FALLBACK_MESSAGE
       );
       return;
     }
   }
 
   try {
-    const reply = await askOpenAI(ev.message.text, context, clients.openaiClient);
+    const reply = await askSakuraAI(ev.message.text, context, clients.sakuraAiClient);
     const replySent = await sendTextReply(clients.lineClient, ev.replyToken, reply);
 
     if (!replySent) {
@@ -436,7 +437,7 @@ async function handleTextMessageEvent(
         ev.message.text,
         reply,
         'user',
-        clients.openaiClient
+        clients.sakuraAiClient
       ),
       updateConversationMemoryForTurn(
         sharedMemoryPk,
@@ -444,14 +445,14 @@ async function handleTextMessageEvent(
         ev.message.text,
         reply,
         'shared',
-        clients.openaiClient
+        clients.sakuraAiClient
       ),
     ]);
   } catch (_error) {
     await sendTextReply(
       clients.lineClient,
       ev.replyToken,
-      OPENAI_FALLBACK_MESSAGE
+      AI_FALLBACK_MESSAGE
     );
   }
 }
