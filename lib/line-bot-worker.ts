@@ -71,9 +71,9 @@ async function getParameter(name: string): Promise<string> {
 }
 
 async function loadClients(): Promise<Clients> {
-  const [channelAccessToken, aiANDAPIKey, geminiApiKey] = await Promise.all([
+  const [channelAccessToken, sakuraApiKey, geminiApiKey] = await Promise.all([
     getParameter(process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME!),
-    getParameter(process.env.AIAND_API_KEY_PARAM_NAME!),
+    getParameter(process.env.SAKURA_API_KEY_PARAM_NAME!),
     getParameter(process.env.GEMINI_API_KEY_PARAM_NAME!),
   ]);
 
@@ -81,7 +81,7 @@ async function loadClients(): Promise<Clients> {
     lineClient: new line.messagingApi.MessagingApiClient({
       channelAccessToken,
     }),
-    openaiClient: new OpenAI({ baseURL: "https://api.aiand.com/v1", apiKey: aiANDAPIKey }),
+    openaiClient: new OpenAI({ baseURL: "https://api.ai.sakura.ad.jp/v1", apiKey: sakuraApiKey }),
     geminiApiKey,
   };
 }

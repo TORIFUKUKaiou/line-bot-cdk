@@ -13,7 +13,7 @@ flowchart TD
 
     Lambda --> SSM[SSM Parameter Store<br/>LINE/OpenAI/Gemini secrets]
     Lambda --> DynamoDB[(DynamoDB<br/>short conversation memory)]
-    Lambda --> AIAND[AI&amp; Responses API<br/>text reply + memory summary]
+    Lambda --> AIAND[さくらのAI Responses API<br/>text reply + memory summary]
     Lambda --> Gemini[Gemini Image Generation API]
     Lambda --> S3[(S3<br/>generated images, 7-day lifecycle)]
 
@@ -24,10 +24,10 @@ flowchart TD
 
 - LINE webhookをLambda Function URLで受け取る
 - LINE署名を検証する
-- テキスト会話ではOpenAIに問い合わせて、くまの人格で短く返答する
+- テキスト会話ではさくらのAIに問い合わせて、くまの人格で短く返答する
 - 画像依頼では、Geminiでくま画伯として画像を生成して返す
 - ユーザーごとに短い会話メモをDynamoDBへ保存する
-- Lambda / OpenAIエラーをCloudWatch + SNSで通知する
+- Lambda / テキスト生成APIエラーをCloudWatch + SNSで通知する
 
 ## Memory Design
 
@@ -80,7 +80,7 @@ CDK実行時に以下を設定します。
 ```bash
 export CHANNEL_SECRET_PARAM_NAME="/line-bot/kuma/channelSecret"
 export CHANNEL_ACCESS_TOKEN_PARAM_NAME="/line-bot/kuma/channelAccessToken"
-export AIAND_API_KEY_PARAM_NAME="/line-bot/kuma/AIANDAPIKEY"
+export SAKURA_API_KEY_PARAM_NAME="/line-bot/kuma/SakuraAPIKEY"
 export GEMINI_API_KEY_PARAM_NAME="/line-bot/kuma/GeminiAPIKEY"
 export EMAIL_ADDRESS="your-alert@example.com"
 ```
@@ -91,7 +91,7 @@ Lambdaには以下が設定されます。
 
 - `CHANNEL_SECRET_PARAM_NAME`
 - `CHANNEL_ACCESS_TOKEN_PARAM_NAME`
-- `AIAND_API_KEY_PARAM_NAME`
+- `SAKURA_API_KEY_PARAM_NAME`
 - `GEMINI_API_KEY_PARAM_NAME`
 - `IMAGES_BUCKET_NAME`
 - `CONVERSATION_MEMORY_TABLE_NAME`
@@ -114,8 +114,8 @@ aws ssm put-parameter \
   --overwrite
 
 aws ssm put-parameter \
-  --name "/line-bot/kuma/AIANDAPIKEY" \
-  --value "your-aiand-api-key" \
+  --name "/line-bot/kuma/SakuraAPIKEY" \
+  --value "your-sakura-api-key" \
   --type "SecureString" \
   --overwrite
 
@@ -187,7 +187,7 @@ npm test
 - DynamoDBは1テーブルのみ、オンデマンド課金
 - 会話履歴は全文保存せず、短い要約だけ保持
 - 画像はS3へ保存し、7日後に自動削除
-- 画像依頼の判定はルールベースで行い、不要なOpenAI呼び出しを減らす
+- 画像依頼の判定はルールベースで行い、不要なテキスト生成API呼び出しを減らす
 - SSMで取得したクライアント設定はLambda実行環境内で再利用する
 
 ## Future Improvements

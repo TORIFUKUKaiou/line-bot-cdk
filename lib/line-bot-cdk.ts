@@ -19,8 +19,8 @@ export class LineBotCdk extends Construct {
     // 必須環境変数のチェック
     const requiredEnvVars = [
       'CHANNEL_SECRET_PARAM_NAME',
-      'CHANNEL_ACCESS_TOKEN_PARAM_NAME', 
-      'AIAND_API_KEY_PARAM_NAME',
+      'CHANNEL_ACCESS_TOKEN_PARAM_NAME',
+      'SAKURA_API_KEY_PARAM_NAME',
       'GEMINI_API_KEY_PARAM_NAME',
       'EMAIL_ADDRESS'
     ];
@@ -74,7 +74,7 @@ export class LineBotCdk extends Construct {
       entry: path.join(__dirname, 'line-bot-worker.ts'),
       environment: {
         CHANNEL_ACCESS_TOKEN_PARAM_NAME: process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME || '',
-        AIAND_API_KEY_PARAM_NAME: process.env.AIAND_API_KEY_PARAM_NAME || '',
+        SAKURA_API_KEY_PARAM_NAME: process.env.SAKURA_API_KEY_PARAM_NAME || '',
         GEMINI_API_KEY_PARAM_NAME: process.env.GEMINI_API_KEY_PARAM_NAME || '',
         IMAGES_BUCKET_NAME: imagesBucket.bucketName,
         CONVERSATION_MEMORY_TABLE_NAME: conversationMemoryTable.tableName,
@@ -117,7 +117,7 @@ export class LineBotCdk extends Construct {
       effect: iam.Effect.ALLOW,
       resources: [
         `arn:aws:ssm:*:*:parameter${process.env.CHANNEL_ACCESS_TOKEN_PARAM_NAME}`,
-        `arn:aws:ssm:*:*:parameter${process.env.AIAND_API_KEY_PARAM_NAME}`,
+        `arn:aws:ssm:*:*:parameter${process.env.SAKURA_API_KEY_PARAM_NAME}`,
         `arn:aws:ssm:*:*:parameter${process.env.GEMINI_API_KEY_PARAM_NAME}`,
       ],
     });
