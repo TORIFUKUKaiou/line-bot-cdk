@@ -30,6 +30,6 @@
     "@line/bot-sdk": "^11.0.2",
     "aws-cdk-lib": "^2.250.0",
     "constructs": "^10.6.0",
-    "openai": "^6.34.0"
+    "openai": "^6.46.0"
   }
 }
