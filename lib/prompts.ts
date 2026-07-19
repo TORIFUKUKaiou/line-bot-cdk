@@ -8,7 +8,7 @@ import {
   RECENT_SUMMARY_LIMIT,
 } from './types';
 
-export const MODEL_NAME = 'preview/gemma-4-31B-it';
+export const MODEL_NAME = 'Qwen3-Coder-480B-A35B-Instruct-FP8';
 export const SUMMARY_MODEL_NAME = MODEL_NAME;
 export const CREATE_IMAGE_MODEL = 'gemini-3.1-flash-lite-image';
 export const IMAGE_SIZE = '1K';
