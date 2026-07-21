@@ -27,7 +27,7 @@ test('uses Responses API and the Sakura model for replies', async () => {
 
   expect(create).toHaveBeenCalledWith(
     expect.objectContaining({
-      model: 'Qwen3-Coder-480B-A35B-Instruct-FP8',
+      model: 'llm-jp-3.1-8x13b-instruct4',
       input: expect.any(Array),
     })
   );
@@ -54,7 +54,7 @@ test('uses output_text for conversation summaries', async () => {
 
   expect(create).toHaveBeenCalledWith(
     expect.objectContaining({
-      model: 'Qwen3-Coder-480B-A35B-Instruct-FP8',
+      model: 'llm-jp-3.1-8x13b-instruct4',
       input: expect.any(Array),
     })
   );
