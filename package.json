@@ -28,7 +28,7 @@
     "@aws-sdk/client-ssm": "^3.1090.0",
     "@aws-sdk/s3-request-presigner": "^3.1101.0",
     "@line/bot-sdk": "^11.2.0",
-    "aws-cdk-lib": "^2.261.0",
+    "aws-cdk-lib": "^2.263.0",
     "constructs": "^10.7.2",
     "openai": "^6.46.0"
   }
