@@ -22,4 +22,7 @@ jobs:
           cache: 'npm'
       - uses: flatt-security/setup-takumi-guard-npm@v1
       - run: npm ci
-      - run: npm test
+      - name: Build TypeScript (type check)
+        run: npm run build
+      - name: Run tests
+        run: npm test
