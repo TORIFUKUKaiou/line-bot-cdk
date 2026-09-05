@@ -3,13 +3,12 @@ name: Dependabot Auto-merge
 on: pull_request
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  pull-requests: read
 
 jobs:
   dependabot:
     runs-on: ubuntu-latest
-    # 公式推奨: PRの作成者が dependabot であることを厳密に判定
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     steps:
       - name: Dependabot metadata
@@ -17,6 +16,20 @@ jobs:
         uses: dependabot/fetch-metadata@v2
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      # 秘密鍵は Dependabot secrets に登録する。
+      # GITHUB_TOKEN ではマージ後の push ワークフローが起動しないため App を使う。
+      - name: Generate GitHub App token
+        id: app-token
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.AUTOMERGE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.AUTOMERGE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
       # Minor または Patch のみ厳格に許可（Majorや判定不能な更新は除外）
       - name: Enable auto-merge for minor and patch updates
@@ -26,4 +39,4 @@ jobs:
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
