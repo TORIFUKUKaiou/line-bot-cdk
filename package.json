@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "test": "jest",
+    "test": "tsc && jest",
     "cdk": "cdk"
   },
   "devDependencies": {
@@ -17,9 +17,7 @@
     "aws-cdk": "^2.1145.0",
     "esbuild": "^0.28.2",
     "jest": "^30.5.2",
-    "ts-jest": "^29.4.15",
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1152.0",
