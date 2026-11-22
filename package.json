@@ -20,7 +20,7 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.1164.0",
+    "@aws-sdk/client-dynamodb": "^3.1169.0",
     "@aws-sdk/client-lambda": "^3.1164.0",
     "@aws-sdk/client-s3": "^3.1169.0",
     "@aws-sdk/client-ssm": "^3.1164.0",
